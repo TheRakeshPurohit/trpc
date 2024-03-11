@@ -1,25 +1,27 @@
 import type {
-  Context as APIGWContext,
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
   APIGatewayProxyResult,
   APIGatewayProxyStructuredResultV2,
+  Context as APIGWContext,
 } from 'aws-lambda';
 import { TRPCError } from '../..';
-import { AnyRouter, inferRouterContext } from '../../core';
+import type { AnyRouter, inferRouterContext } from '../../core';
+import type { HTTPRequest } from '../../http';
 import { resolveHTTPResponse } from '../../http';
-import { HTTPRequest } from '../../http/internals/types';
 import type { HTTPResponse } from '../../http/internals/types';
-import {
+import type {
   APIGatewayEvent,
   APIGatewayResult,
   AWSLambdaOptions,
-  UNKNOWN_PAYLOAD_FORMAT_VERSION_ERROR_MESSAGE,
+} from './utils';
+import {
   getHTTPMethod,
   getPath,
   isPayloadV1,
   isPayloadV2,
   transformHeaders,
+  UNKNOWN_PAYLOAD_FORMAT_VERSION_ERROR_MESSAGE,
 } from './utils';
 
 export * from './utils';
@@ -75,18 +77,6 @@ function tRPCOutputToAPIGatewayOutput<
   }
 }
 
-/** Will check the createContext of the TRouter and get the parameter of event.
- * @internal
- **/
-type inferAPIGWEvent<
-  TRouter extends AnyRouter,
-  TEvent extends APIGatewayEvent,
-> = AWSLambdaOptions<TRouter, TEvent>['createContext'] extends NonNullable<
-  AWSLambdaOptions<TRouter, TEvent>['createContext']
->
-  ? Parameters<AWSLambdaOptions<TRouter, TEvent>['createContext']>[0]['event']
-  : APIGatewayEvent;
-
 /** 1:1 mapping of v1 or v2 input events, deduces which is which.
  * @internal
  **/
@@ -97,7 +87,7 @@ type inferAPIGWReturn<TType> = TType extends APIGatewayProxyEvent
   : never;
 export function awsLambdaRequestHandler<
   TRouter extends AnyRouter,
-  TEvent extends inferAPIGWEvent<TRouter, TEvent>,
+  TEvent extends APIGatewayEvent,
   TResult extends inferAPIGWReturn<TEvent>,
 >(
   opts: AWSLambdaOptions<TRouter, TEvent>,

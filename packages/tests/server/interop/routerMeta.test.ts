@@ -1,8 +1,7 @@
 import { legacyRouterToServerAndClient } from './__legacyRouterToServerAndClient';
 import * as trpc from '@trpc/server/src';
-import { inferRouterMeta } from '@trpc/server/src';
+import type { inferRouterMeta } from '@trpc/server/src';
 import { observable } from '@trpc/server/src/observable';
-import { expectTypeOf } from 'expect-type';
 
 test('route meta types', async () => {
   const testMeta = { data: 'foo' };
@@ -41,22 +40,21 @@ test('route meta types', async () => {
     }
   `);
 
-  const queryMeta = router['_def']['queries']['query']['meta'];
+  const queryMeta = router._def.queries.query.meta;
   expectTypeOf(queryMeta).toMatchTypeOf<TMeta | undefined>();
   expect(queryMeta).toEqual(testMeta);
 
-  const mutationMeta = router['_def']['mutations']['mutation']['meta'];
+  const mutationMeta = router._def.mutations.mutation.meta;
   expectTypeOf(mutationMeta).toMatchTypeOf<TMeta | undefined>();
   expect(mutationMeta).toEqual(testMeta);
 
-  const subscriptionMeta =
-    router['_def']['subscriptions']['subscription']['meta'];
+  const subscriptionMeta = router._def.subscriptions.subscription.meta;
   expectTypeOf(subscriptionMeta).toMatchTypeOf<TMeta | undefined>();
   expect(subscriptionMeta).toEqual(testMeta);
 });
 
 test('route meta in middleware', async () => {
-  const middleware = jest.fn((opts) => {
+  const middleware = vi.fn((opts) => {
     return opts.next();
   });
   const { client, close } = legacyRouterToServerAndClient(
@@ -95,5 +93,5 @@ test('route meta in middleware', async () => {
   });
 
   expect(middleware).toHaveBeenCalledTimes(2);
-  close();
+  await close();
 });

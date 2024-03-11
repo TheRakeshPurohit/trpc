@@ -2,7 +2,7 @@
 id: merging-routers
 title: Merging Routers
 sidebar_label: Merging Routers
-slug: /merging-routers
+slug: /server/merging-routers
 ---
 
 Writing all API-code in your code in the same file is not a great idea. It's easy to merge routers with other routers.
@@ -15,7 +15,7 @@ import { initTRPC } from '@trpc/server';
 const t = initTRPC.create();
 
 
-export const middleware = t.middleware;
+
 export const router = t.router;
 export const publicProcedure = t.procedure;
 
@@ -31,6 +31,9 @@ const appRouter = router({
   post: postRouter, // put procedures under "post" namespace
 });
 
+// You can then access the merged route with
+// http://localhost:3000/trpc/<NAMESPACE>.<PROCEDURE>
+
 export type AppRouter = typeof appRouter;
 
 
@@ -44,8 +47,9 @@ export const postRouter = router({
         title: z.string(),
       }),
     )
-    .mutation(({ input }) => {
-      //          ^?
+    .mutation((opts) => {
+      const { input } = opts;
+      //        ^?
       // [...]
     }),
   list: publicProcedure.query(() => {
@@ -70,22 +74,15 @@ export const userRouter = router({
 
 If you prefer having all procedures flat in one single namespace, you can instead use `t.mergeRouters`
 
-
-
 ```ts twoslash title='server.ts'
 // @filename: trpc.ts
 import { initTRPC } from '@trpc/server';
 const t = initTRPC.create();
 
 
-export const middleware = t.middleware;
 export const router = t.router;
 export const publicProcedure = t.procedure;
 export const mergeRouters = t.mergeRouters;
-
-
-
-// ---cut---
 
 // @filename: routers/_app.ts
 import { router, publicProcedure, mergeRouters } from '../trpc';
@@ -108,8 +105,9 @@ export const postRouter = router({
         title: z.string(),
       }),
     )
-    .mutation(({ input }) => {
-      //          ^?
+    .mutation((opts) => {
+      const { input } = opts;
+      //        ^?
       // [...]
     }),
   postList: publicProcedure.query(() => {

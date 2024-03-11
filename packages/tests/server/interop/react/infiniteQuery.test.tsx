@@ -1,20 +1,18 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
 import { createQueryClient } from '../../__queryClient';
-import { Post, createLegacyAppRouter } from './__testHelpers';
+import type { Post } from './__testHelpers';
+import { createLegacyAppRouter } from './__testHelpers';
 import { QueryClientProvider } from '@tanstack/react-query';
-import '@testing-library/jest-dom';
 import { render, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createSSGHelpers } from '@trpc/react-query/src/ssg';
-import { expectTypeOf } from 'expect-type';
 import React, { Fragment, useState } from 'react';
 
 let factory: ReturnType<typeof createLegacyAppRouter>;
 beforeEach(() => {
   factory = createLegacyAppRouter();
 });
-afterEach(() => {
-  factory.close();
+afterEach(async () => {
+  await factory.close();
 });
 
 describe('Infinite Query', () => {
@@ -33,7 +31,7 @@ describe('Infinite Query', () => {
           getNextPageParam: (lastPage) => lastPage.nextCursor,
         },
       );
-      expectTypeOf(q.data?.pages[0]!.items).toMatchTypeOf<undefined | Post[]>();
+      expectTypeOf(q.data?.pages[0]!.items).toMatchTypeOf<Post[] | undefined>();
 
       return q.status === 'loading' ? (
         <p>Loading...</p>
@@ -89,7 +87,7 @@ describe('Infinite Query', () => {
       expect(utils.container).not.toHaveTextContent('second post');
       expect(utils.container).toHaveTextContent('Load More');
     });
-    userEvent.click(utils.getByTestId('loadMore'));
+    await userEvent.click(utils.getByTestId('loadMore'));
     await waitFor(() => {
       expect(utils.container).toHaveTextContent('Loading more...');
     });
@@ -136,7 +134,7 @@ describe('Infinite Query', () => {
           getNextPageParam: (lastPage) => lastPage.nextCursor,
         },
       );
-      expectTypeOf(q.data?.pages[0]?.items).toMatchTypeOf<undefined | Post[]>();
+      expectTypeOf(q.data?.pages[0]?.items).toMatchTypeOf<Post[] | undefined>();
 
       return q.status === 'loading' ? (
         <p>Loading...</p>
@@ -205,7 +203,7 @@ describe('Infinite Query', () => {
       expect(utils.container).not.toHaveTextContent('second post');
       expect(utils.container).toHaveTextContent('Load More');
     });
-    userEvent.click(utils.getByTestId('loadMore'));
+    await userEvent.click(utils.getByTestId('loadMore'));
     await waitFor(() => {
       expect(utils.container).toHaveTextContent('Loading more...');
     });
@@ -242,7 +240,7 @@ describe('Infinite Query', () => {
     </div>
   `);
 
-    userEvent.click(utils.getByTestId('prefetch'));
+    await userEvent.click(utils.getByTestId('prefetch'));
     await waitFor(() => {
       expect(utils.container).toHaveTextContent('Fetching...');
     });
@@ -271,7 +269,7 @@ describe('Infinite Query', () => {
           getNextPageParam: (lastPage) => lastPage.nextCursor,
         },
       );
-      expectTypeOf(q.data?.pages[0]?.items).toMatchTypeOf<undefined | Post[]>();
+      expectTypeOf(q.data?.pages[0]?.items).toMatchTypeOf<Post[] | undefined>();
 
       return q.status === 'loading' ? (
         <p>Loading...</p>
@@ -337,7 +335,7 @@ describe('Infinite Query', () => {
       expect(utils.container).not.toHaveTextContent('second post');
       expect(utils.container).toHaveTextContent('Load More');
     });
-    userEvent.click(utils.getByTestId('loadMore'));
+    await userEvent.click(utils.getByTestId('loadMore'));
     await waitFor(() => {
       expect(utils.container).toHaveTextContent('Loading more...');
     });
@@ -374,7 +372,7 @@ describe('Infinite Query', () => {
     </div>
   `);
 
-    userEvent.click(utils.getByTestId('fetch'));
+    await userEvent.click(utils.getByTestId('fetch'));
     await waitFor(() => {
       expect(utils.container).toHaveTextContent('Fetching...');
     });

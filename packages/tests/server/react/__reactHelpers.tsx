@@ -1,15 +1,18 @@
 import { routerToServerAndClientNew } from '../___testHelpers';
 import { createQueryClient } from '../__queryClient';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Operation, httpBatchLink, splitLink, wsLink } from '@trpc/client/src';
-import { createTRPCReact } from '@trpc/react-query/src';
-import { AnyRouter } from '@trpc/server/src';
-import React, { ReactNode } from 'react';
+import type { Operation } from '@trpc/client/src';
+import { httpBatchLink, splitLink, wsLink } from '@trpc/client/src';
+import type { CreateTRPCReactBase } from '@trpc/react-query/src/createTRPCReact';
+import { createTRPCReact } from '@trpc/react-query/src/createTRPCReact';
+import type { AnyRouter } from '@trpc/server/src';
+import type { ReactNode } from 'react';
+import React from 'react';
 
 export function getServerAndReactClient<TRouter extends AnyRouter>(
   appRouter: TRouter,
 ) {
-  const spyLink = jest.fn((_op: Operation<unknown>) => {
+  const spyLink = vi.fn((_op: Operation<unknown>) => {
     // noop
   });
 
@@ -36,20 +39,18 @@ export function getServerAndReactClient<TRouter extends AnyRouter>(
   });
 
   const queryClient = createQueryClient();
-  const proxy = createTRPCReact<
-    typeof appRouter,
-    unknown,
-    'ExperimentalSuspense'
-  >();
+  const proxy = createTRPCReact<TRouter, unknown, ''>();
+  const baseProxy = proxy as CreateTRPCReactBase<TRouter, unknown>;
+
   const client = opts.client;
 
   function App(props: { children: ReactNode }) {
     return (
-      <proxy.Provider {...{ queryClient, client }}>
+      <baseProxy.Provider {...{ queryClient, client }}>
         <QueryClientProvider client={queryClient}>
           {props.children}
         </QueryClientProvider>
-      </proxy.Provider>
+      </baseProxy.Provider>
     );
   }
 

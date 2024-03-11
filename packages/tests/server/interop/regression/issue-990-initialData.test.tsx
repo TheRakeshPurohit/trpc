@@ -1,14 +1,6 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
-
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-import { createQueryClient } from '../../__queryClient';
 import { legacyRouterToServerAndClient } from '../__legacyRouterToServerAndClient';
+import { createQueryClient } from '../../__queryClient';
 import { QueryClientProvider } from '@tanstack/react-query';
-import '@testing-library/jest-dom';
 import { render, waitFor } from '@testing-library/react';
 import * as trpcReact from '@trpc/react-query/src';
 import * as trpcServer from '@trpc/server/src';
@@ -52,5 +44,5 @@ test('initialData type', async () => {
     expect(utils.container).toHaveTextContent('alexdotjs');
   });
 
-  close();
+  await close();
 });

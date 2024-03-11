@@ -7,20 +7,34 @@ slug: /rpc
 
 ## Methods <-> Type mapping
 
-| HTTP Method  | Mapping           | Notes                                                                                                         |
-| ------------ | ----------------- | ------------------------------------------------------------------------------------------------------------- |
-| `GET`        | `.query()`        | Input JSON-stringified in query param.<br/>_e.g._ `myQuery?input=${encodeURIComponent(JSON.stringify(input))` |
-| `POST`       | `.mutation()`     | Input as POST body.                                                                                           |
-| <em>n/a</em> | `.subscription()` | <em>Subscriptions are not supported in HTTP transport</em>                                                    |
+| HTTP Method  | Mapping           | Notes                                                                                                          |
+| ------------ | ----------------- | -------------------------------------------------------------------------------------------------------------- |
+| `GET`        | `.query()`        | Input JSON-stringified in query param.<br/>_e.g._ `myQuery?input=${encodeURIComponent(JSON.stringify(input))}` |
+| `POST`       | `.mutation()`     | Input as POST body.                                                                                            |
+| <em>n/a</em> | `.subscription()` | <em>Subscriptions are not supported in HTTP transport</em>                                                     |
+
+## Accessing nested procedures
+
+Nested procedures are separated by dots, so for a request to `byId` below would end up being a request to `/api/trpc/post.byId`.
+
+```ts
+export const appRouter = router({
+  post: router({
+    byId: publicProcedure.input(String).query(async (opts) => {
+      // [...]
+    }),
+  }),
+});
+```
 
 ## Batching
 
-When batching, we combine all parallel procedure calls of the same type in one request using a data loader.
+When batching, we combine all parallel procedure calls of the same HTTP method in one request using a data loader.
 
 - The called procedures' names are combined by a comma (`,`) in the `pathname`
 - Input parameters are sent as a query parameter called `input` which has the shape `Record<number, unknown>`.
 - We also need to pass `batch=1` as a query parameter.
-- If the response has different statuses we send back `207 Multi-Status` _(e.g. if one call errored and one succeeded) _
+- If the response has different statuses, we send back `207 Multi-Status` _(e.g., if one call errored and one succeeded) _
 
 ### Batching Example Request
 
@@ -28,20 +42,20 @@ When batching, we combine all parallel procedure calls of the same type in one r
 
 ```tsx title='server/router.ts'
 export const appRouter = t.router({
-  postById: t.procedure.input(String).query(async ({ input, ctx }) => {
-    const post = await ctx.post.findUnique({
-      where: { id: input },
+  postById: t.procedure.input(String).query(async (opts) => {
+    const post = await opts.ctx.post.findUnique({
+      where: { id: opts.input },
     });
     return post;
   }),
-  relatedPosts: t.procedure.input(String).query(async ({ input, ctx }) => {
-    const posts = await ctx.findRelatedPostsById(input);
+  relatedPosts: t.procedure.input(String).query(async (opts) => {
+    const posts = await opts.ctx.findRelatedPostsById(opts.input);
     return posts;
   }),
 });
 ```
 
-#### .. And two queries defined like this in a React component:
+#### ... And two queries defined like this in a React component:
 
 ```tsx title='MyComponent.tsx'
 export function MyComponent() {
@@ -170,24 +184,27 @@ In order to have a specification that works regardless of the transport layer we
 <br/>
 
 - When possible, we propagate HTTP status codes from the error thrown.
-- If the response has different statuses we send back `207 Multi-Status` _(e.g. if one call errored and one succeeded) _
-- For more on errors and how customize them see [Error Formatting](../server/error-formatting.md).
+- If the response has different statuses, we send back `207 Multi-Status` _(e.g., if one call errored and one succeeded) _
+- For more on errors and how to customize them see [Error Formatting](../server/error-formatting.md).
 
 ## Error Codes <-> HTTP Status
 
 ```ts
 PARSE_ERROR: 400,
 BAD_REQUEST: 400,
-NOT_FOUND: 404,
-INTERNAL_SERVER_ERROR: 500,
 UNAUTHORIZED: 401,
+NOT_FOUND: 404,
 FORBIDDEN: 403,
+METHOD_NOT_SUPPORTED: 405,
 TIMEOUT: 408,
 CONFLICT: 409,
-CLIENT_CLOSED_REQUEST: 499,
 PRECONDITION_FAILED: 412,
 PAYLOAD_TOO_LARGE: 413,
-METHOD_NOT_SUPPORTED: 405,
+UNPROCESSABLE_CONTENT: 422,
+TOO_MANY_REQUESTS: 429,
+CLIENT_CLOSED_REQUEST: 499,
+INTERNAL_SERVER_ERROR: 500,
+NOT_IMPLEMENTED: 501,
 ```
 
 ## Error Codes <-> JSON-RPC 2.0 Error Codes
@@ -211,10 +228,11 @@ export const TRPC_ERROR_CODES_BY_KEY = {
    * The JSON sent is not a valid Request object.
    */
   BAD_REQUEST: -32600, // 400
-  /**
-   * Internal JSON-RPC error.
-   */
+
+  // Internal JSON-RPC error
   INTERNAL_SERVER_ERROR: -32603,
+  NOT_IMPLEMENTED: -32603,
+
   // Implementation specific errors
   UNAUTHORIZED: -32001, // 401
   FORBIDDEN: -32003, // 403
@@ -224,6 +242,8 @@ export const TRPC_ERROR_CODES_BY_KEY = {
   CONFLICT: -32009, // 409
   PRECONDITION_FAILED: -32012, // 412
   PAYLOAD_TOO_LARGE: -32013, // 413
+  UNPROCESSABLE_CONTENT: -32022, // 422
+  TOO_MANY_REQUESTS: -32029, // 429
   CLIENT_CLOSED_REQUEST: -32099, // 499
 } as const;
 ```
@@ -235,4 +255,4 @@ export const TRPC_ERROR_CODES_BY_KEY = {
 You can read more details by drilling into the TypeScript definitions in
 
 - [/packages/server/src/rpc/envelopes.ts](https://github.com/trpc/trpc/tree/main/packages/server/src/rpc/envelopes.ts)
-- [/packages/server/src/rpc/codes.ts](https://github.com/trpc/trpc/tree/main/packages/server/src/rpc/codes.ts).
+- [/packages/server/src/rpc/codes.ts](https://github.com/trpc/trpc/tree/main/packages/server/src/rpc/codes.ts)

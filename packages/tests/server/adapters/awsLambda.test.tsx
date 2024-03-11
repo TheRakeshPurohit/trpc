@@ -1,5 +1,4 @@
-import * as trpc from '@trpc/server/src';
-import { inferAsyncReturnType } from '@trpc/server/src';
+import { initTRPC } from '@trpc/server/src';
 import * as trpcLambda from '@trpc/server/src/adapters/aws-lambda';
 import type { APIGatewayProxyEvent, APIGatewayProxyEventV2 } from 'aws-lambda';
 import { z } from 'zod';
@@ -18,60 +17,54 @@ const createContext = async ({
   };
 };
 
-type Context = inferAsyncReturnType<typeof createContext>;
-const router = trpc
-  .router<Context>()
-  .query('hello', {
-    input: z
-      .object({
-        who: z.string().nullish(),
-      })
-      .nullish(),
-    resolve({ input, ctx }) {
+type Context = Awaited<ReturnType<typeof createContext>>;
+const t = initTRPC.context<Context>().create();
+
+const router = t.router({
+  hello: t.procedure
+    .input(
+      z
+        .object({
+          who: z.string().nullish(),
+        })
+        .nullish(),
+    )
+    .query(({ input, ctx }) => ({
+      text: `hello ${input?.who ?? ctx.user ?? 'world'}`,
+    })),
+  echo: t.procedure
+    .input(
+      z.object({
+        who: z.object({ name: z.string().nullish() }),
+      }),
+    )
+    .query(({ input }) => ({
+      text: `hello ${input.who.name}`,
+    })),
+  ['hello/darkness/my/old/friend']: t.procedure.query(() => {
+    return {
+      text: "I've come to talk with you again",
+    };
+  }),
+  addOne: t.procedure
+    .input(z.object({ counter: z.number().int().min(0) }))
+    .mutation(({ input }) => {
       return {
-        text: `hello ${input?.who ?? ctx.user ?? 'world'}`,
+        counter: input.counter + 1,
       };
-    },
-  })
-  .query('echo', {
-    input: z.object({
-      who: z.object({ name: z.string().nullish() }),
     }),
-    resolve({ input }) {
-      return {
-        text: `hello ${input.who.name}`,
-      };
-    },
-  })
-  .query('hello/darkness/my/old/friend', {
-    resolve() {
-      return {
-        text: `I've come to talk with you again`,
-      };
-    },
-  })
-  .mutation('addOne', {
-    input: z.object({
-      counter: z.number().int().min(0),
-    }),
-    resolve(req) {
-      return { counter: req.input.counter + 1 };
-    },
-  })
-  .interop();
-const contextlessApp = trpc
-  .router()
-  .query('hello', {
-    input: z.object({
-      who: z.string(),
-    }),
-    resolve({ input }) {
+});
+
+const tC = initTRPC.create();
+const contextlessApp = tC.router({
+  hello: tC.procedure
+    .input(z.object({ who: z.string() }))
+    .query(({ input }) => {
       return {
         text: `hello ${input.who}`,
       };
-    },
-  })
-  .interop();
+    }),
+});
 
 const handler = trpcLambda.awsLambdaRequestHandler({
   router,
@@ -137,6 +130,39 @@ test('test v1 with leading prefix', async () => {
       "result": Object {
         "data": Object {
           "text": "hello Lilja",
+        },
+      },
+    }
+  `);
+});
+
+test('test v1 can find procedure even if resource is not proxied', async () => {
+  const { body, ...result } = await handler(
+    mockAPIGatewayProxyEventV1({
+      body: JSON.stringify({}),
+      headers: { 'Content-Type': 'application/json', 'X-USER': 'Robin' },
+      method: 'GET',
+      path: '/leading/prefix/hello',
+      queryStringParameters: {},
+      // No pathParameters since we hit a direct resource, i.e. no {proxy+} on resource
+      resource: '/leading/prefix/hello',
+    }),
+    mockAPIGatewayContext(),
+  );
+  const parsedBody = JSON.parse(body || '');
+  expect(result).toMatchInlineSnapshot(`
+    Object {
+      "headers": Object {
+        "Content-Type": "application/json",
+      },
+      "statusCode": 200,
+    }
+  `);
+  expect(parsedBody).toMatchInlineSnapshot(`
+    Object {
+      "result": Object {
+        "data": Object {
+          "text": "hello Robin",
         },
       },
     }
@@ -221,7 +247,7 @@ test('test v2 format', async () => {
       "statusCode": 200,
     }
   `);
-  const parsedBody = JSON.parse(body || '');
+  const parsedBody = JSON.parse(body ?? '');
   expect(parsedBody).toMatchInlineSnapshot(`
     Object {
       "result": Object {
@@ -264,7 +290,7 @@ test('test v2 format with multiple / in query key', async () => {
       "statusCode": 200,
     }
   `);
-  const parsedBody = JSON.parse(body || '');
+  const parsedBody = JSON.parse(body ?? '');
   expect(parsedBody).toMatchInlineSnapshot(`
     Object {
       "result": Object {
@@ -308,7 +334,7 @@ test('test v2 format with non default routeKey', async () => {
       "statusCode": 200,
     }
   `);
-  const parsedBody = JSON.parse(body || '');
+  const parsedBody = JSON.parse(body ?? '');
   expect(parsedBody).toMatchInlineSnapshot(`
     Object {
       "result": Object {
@@ -351,7 +377,7 @@ test('test v2 format with non default routeKey and nested router', async () => {
       "statusCode": 200,
     }
   `);
-  const parsedBody = JSON.parse(body || '');
+  const parsedBody = JSON.parse(body ?? '');
   expect(parsedBody).toMatchInlineSnapshot(`
     Object {
       "result": Object {
@@ -387,7 +413,7 @@ test('router with no context', async () => {
       "statusCode": 200,
     }
   `);
-  const parsedBody = JSON.parse(body || '');
+  const parsedBody = JSON.parse(body ?? '');
   expect(parsedBody).toMatchInlineSnapshot(`
     Object {
       "result": Object {

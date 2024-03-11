@@ -1,7 +1,5 @@
 import { legacyRouterToServerAndClient } from './__legacyRouterToServerAndClient';
-import '@testing-library/jest-dom';
 import * as trpc from '@trpc/server/src';
-import { expectTypeOf } from 'expect-type';
 import myzod from 'myzod';
 import * as t from 'superstruct';
 import * as yup from 'yup';
@@ -31,7 +29,7 @@ test('zod', async () => {
     `[TRPCClientError: Output validation failed]`,
   );
 
-  close();
+  await close();
 });
 
 test('zod async', async () => {
@@ -60,7 +58,7 @@ test('zod async', async () => {
     `[TRPCClientError: Output validation failed]`,
   );
 
-  close();
+  await close();
 });
 
 test('zod transform', async () => {
@@ -87,7 +85,7 @@ test('zod transform', async () => {
     `[TRPCClientError: Output validation failed]`,
   );
 
-  close();
+  await close();
 });
 
 test('superstruct', async () => {
@@ -114,7 +112,7 @@ test('superstruct', async () => {
     `[TRPCClientError: Output validation failed]`,
   );
 
-  close();
+  await close();
 });
 
 test('yup', async () => {
@@ -152,7 +150,7 @@ test('yup', async () => {
     `[TRPCClientError: Output validation failed]`,
   );
 
-  close();
+  await close();
 });
 
 test('myzod', async () => {
@@ -179,12 +177,12 @@ test('myzod', async () => {
     `[TRPCClientError: Output validation failed]`,
   );
 
-  close();
+  await close();
 });
 
 test('validator fn', async () => {
   const router = trpc.router().query('q', {
-    input: (value: unknown) => value as string | number,
+    input: (value: unknown) => value as number | string,
     output: (value: unknown) => {
       if (typeof (value as any).input === 'string') {
         return value as { input: string };
@@ -209,12 +207,12 @@ test('validator fn', async () => {
     `[TRPCClientError: Output validation failed]`,
   );
 
-  close();
+  await close();
 });
 
 test('async validator fn', async () => {
   const router = trpc.router().query('q', {
-    input: (value: unknown) => value as string | number,
+    input: (value: unknown) => value as number | string,
     output: async (value: any): Promise<{ input: string }> => {
       if (value && typeof value.input === 'string') {
         return { input: value.input };
@@ -239,5 +237,5 @@ test('async validator fn', async () => {
     `[TRPCClientError: Output validation failed]`,
   );
 
-  close();
+  await close();
 });

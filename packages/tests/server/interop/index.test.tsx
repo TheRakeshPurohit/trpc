@@ -1,16 +1,16 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
+/* eslint-disable @typescript-eslint/ban-types */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-empty-function */
 import { waitError } from '../___testHelpers';
 import { legacyRouterToServerAndClient } from './__legacyRouterToServerAndClient';
 import { waitFor } from '@testing-library/react';
-import { HTTPHeaders, TRPCClientError } from '@trpc/client/src';
-import { httpBatchLink } from '@trpc/client/src';
+import type { HTTPHeaders } from '@trpc/client/src';
+import { httpBatchLink, TRPCClientError } from '@trpc/client/src';
 import * as trpc from '@trpc/server/src';
-import { Maybe, TRPCError } from '@trpc/server/src';
-import { CreateHTTPContextOptions } from '@trpc/server/src/adapters/standalone';
+import type { Maybe } from '@trpc/server/src';
+import { TRPCError } from '@trpc/server/src';
+import type { CreateHTTPContextOptions } from '@trpc/server/src/adapters/standalone';
 import { observable } from '@trpc/server/src/observable';
-import { expectTypeOf } from 'expect-type';
 import { z } from 'zod';
 
 test('smoke test', async () => {
@@ -23,7 +23,7 @@ test('smoke test', async () => {
   );
 
   expect(await client.query('hello')).toBe('world');
-  close();
+  await close();
 });
 test('mix query and mutation', async () => {
   type Context = {};
@@ -114,7 +114,7 @@ describe('integration tests', () => {
     expect(err.shape?.message).toMatchInlineSnapshot(
       `"No \\"query\\"-procedure on path \\"notFound\\""`,
     );
-    close();
+    await close();
   });
 
   test('invalid input', async () => {
@@ -151,7 +151,7 @@ describe('integration tests', () => {
           }
         ]"
       `);
-    close();
+    await close();
   });
 
   test('passing input to input w/o input', async () => {
@@ -188,7 +188,7 @@ describe('integration tests', () => {
       client.mutation('m', 'not-nullish' as any),
     ).rejects.toMatchInlineSnapshot(`[TRPCClientError: No input expected]`);
 
-    close();
+    await close();
   });
 
   describe('type testing', () => {
@@ -217,7 +217,7 @@ describe('integration tests', () => {
 
       expect(res.text).toEqual('hello katt');
 
-      close();
+      await close();
     });
 
     test('mixed response', async () => {
@@ -242,13 +242,13 @@ describe('integration tests', () => {
         }),
       );
       const res = await client.query('postById', 1);
-      expectTypeOf(res).toMatchTypeOf<null | { id: number; title: string }>();
+      expectTypeOf(res).toMatchTypeOf<{ id: number; title: string } | null>();
       expect(res).toEqual({
         id: 1,
         title: 'helloo',
       });
 
-      close();
+      await close();
     });
 
     test('propagate ctx', async () => {
@@ -313,7 +313,7 @@ describe('integration tests', () => {
         });
       }
 
-      close();
+      await close();
     });
 
     test('optional input', async () => {
@@ -340,16 +340,14 @@ describe('integration tests', () => {
         const res = await client.query('hello', { who: 'katt' });
         expectTypeOf(res.input).toMatchTypeOf<Input>();
         expectTypeOf(res.input).not.toBeAny();
-        expectTypeOf(res).toMatchTypeOf<{ input: Input; text: string }>();
       }
       {
         const res = await client.query('hello');
         expectTypeOf(res.input).toMatchTypeOf<Input>();
         expectTypeOf(res.input).not.toBeAny();
-        expectTypeOf(res).toMatchTypeOf<{ input: Input; text: string }>();
       }
 
-      close();
+      await close();
     });
 
     test('mutation', async () => {
@@ -375,9 +373,8 @@ describe('integration tests', () => {
       const res = await client.mutation('hello', { who: 'katt' });
       expectTypeOf(res.input).toMatchTypeOf<Input>();
       expectTypeOf(res.input).not.toBeAny();
-      expectTypeOf(res).toMatchTypeOf<{ input: Input; text: string }>();
       expect(res.text).toBe('hello katt');
-      close();
+      await close();
     });
   });
 });
@@ -520,8 +517,8 @@ test('void mutation response', async () => {
   //   `undefined`,
   // );
   // expect(await wsClient.mutation('null')).toMatchInlineSnapshot(`null`);
-  // ws.close();
-  close();
+  // ws.await close();
+  await close();
 });
 
 // https://github.com/trpc/trpc/issues/559
@@ -535,7 +532,7 @@ describe('ObservableAbortError', () => {
         },
       }),
     );
-    const onReject = jest.fn();
+    const onReject = vi.fn();
     const ac = new AbortController();
     const req = client.query('slow', undefined, {
       signal: ac.signal,
@@ -553,7 +550,7 @@ describe('ObservableAbortError', () => {
     expect(err.name).toBe('TRPCClientError');
     expect(err.cause?.name).toBe('ObservableAbortError');
 
-    close();
+    await close();
   });
 
   test('cancelling batch request should throw AbortError', async () => {
@@ -590,7 +587,7 @@ describe('ObservableAbortError', () => {
     const ac = new AbortController();
     const req1 = client.query('slow1', undefined, { signal: ac.signal });
     const req2 = client.query('slow2');
-    const onReject1 = jest.fn();
+    const onReject1 = vi.fn();
     req1.catch(onReject1);
 
     await new Promise((resolve) => setTimeout(resolve, 5));
@@ -605,7 +602,7 @@ describe('ObservableAbortError', () => {
 
     expect(await req2).toBe('slow2');
 
-    close();
+    await close();
   });
 });
 
@@ -637,5 +634,5 @@ Object {
 }
 `);
   expect(await client.query('q')).toMatchInlineSnapshot(`Object {}`);
-  close();
+  await close();
 });

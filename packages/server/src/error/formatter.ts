@@ -1,10 +1,10 @@
-import { ProcedureType } from '../core';
-import {
-  TRPCErrorShape,
+import type { ProcedureType } from '../core';
+import type {
   TRPC_ERROR_CODE_KEY,
   TRPC_ERROR_CODE_NUMBER,
+  TRPCErrorShape,
 } from '../rpc';
-import { TRPCError } from './TRPCError';
+import type { TRPCError } from './TRPCError';
 
 /**
  * @internal
@@ -16,7 +16,7 @@ export type ErrorFormatter<TContext, TShape extends TRPCErrorShape<number>> = ({
   type: ProcedureType | 'unknown';
   path: string | undefined;
   input: unknown;
-  ctx: undefined | TContext;
+  ctx: TContext | undefined;
   shape: DefaultErrorShape;
 }) => TShape;
 

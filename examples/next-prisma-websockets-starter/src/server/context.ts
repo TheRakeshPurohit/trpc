@@ -1,9 +1,8 @@
-import * as trpc from '@trpc/server';
-import * as trpcNext from '@trpc/server/adapters/next';
-import { NodeHTTPCreateContextFnOptions } from '@trpc/server/adapters/node-http';
-import { IncomingMessage } from 'http';
+import type * as trpcNext from '@trpc/server/adapters/next';
+import type { NodeHTTPCreateContextFnOptions } from '@trpc/server/adapters/node-http';
+import type { IncomingMessage } from 'http';
 import { getSession } from 'next-auth/react';
-import ws from 'ws';
+import type { WebSocket } from 'ws';
 
 /**
  * Creates context for an incoming request
@@ -11,8 +10,8 @@ import ws from 'ws';
  */
 export const createContext = async (
   opts:
-    | trpcNext.CreateNextContextOptions
-    | NodeHTTPCreateContextFnOptions<IncomingMessage, ws>,
+    | NodeHTTPCreateContextFnOptions<IncomingMessage, WebSocket>
+    | trpcNext.CreateNextContextOptions,
 ) => {
   const session = await getSession(opts);
 
@@ -23,4 +22,4 @@ export const createContext = async (
   };
 };
 
-export type Context = trpc.inferAsyncReturnType<typeof createContext>;
+export type Context = Awaited<ReturnType<typeof createContext>>;

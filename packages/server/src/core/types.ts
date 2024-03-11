@@ -1,6 +1,7 @@
-import { inferObservableValue } from '../observable';
-import { AnyProcedure, ProcedureArgs } from './procedure';
-import { AnyRouter, AnyRouterDef, Router } from './router';
+import type { inferObservableValue } from '../observable';
+import type { inferTransformedProcedureOutput } from '../shared/jsonify';
+import type { AnyProcedure, ProcedureArgs } from './procedure';
+import type { AnyRouter, AnyRouterDef, Router } from './router';
 
 export type inferRouterDef<TRouter extends AnyRouter> = TRouter extends Router<
   infer TParams
@@ -21,7 +22,7 @@ export const procedureTypes = ['query', 'mutation', 'subscription'] as const;
 /**
  * @public
  */
-export type ProcedureType = typeof procedureTypes[number];
+export type ProcedureType = (typeof procedureTypes)[number];
 
 export type inferHandlerInput<TProcedure extends AnyProcedure> = ProcedureArgs<
   inferProcedureParams<TProcedure>
@@ -36,9 +37,12 @@ export type inferProcedureParams<TProcedure> = TProcedure extends AnyProcedure
 export type inferProcedureOutput<TProcedure> =
   inferProcedureParams<TProcedure>['_output_out'];
 
+/**
+ * @deprecated will be removed in next major as it's v9 stuff
+ */
 export type inferSubscriptionOutput<
   TRouter extends AnyRouter,
-  TPath extends keyof TRouter['_def']['subscriptions'] & string,
+  TPath extends string & keyof TRouter['_def']['subscriptions'],
 > = inferObservableValue<
   inferProcedureOutput<TRouter['_def']['subscriptions'][TPath]>
 >;
@@ -56,7 +60,7 @@ type GetInferenceHelpers<
       : TRouterOrProcedure extends AnyProcedure
       ? TType extends 'input'
         ? inferProcedureInput<TRouterOrProcedure>
-        : inferProcedureOutput<TRouterOrProcedure>
+        : inferTransformedProcedureOutput<TRouterOrProcedure>
       : never
     : never;
 };

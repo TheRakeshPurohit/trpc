@@ -1,9 +1,13 @@
 name: Build & Test
 
-on: [push]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
   test:
+    timeout-minutes: 10
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
@@ -14,19 +18,19 @@ jobs:
 
     strategy:
       matrix:
-        node: ['16.x']
+        node: ['18.x', '20.x']
         os: [ubuntu-latest]
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v2.2.4
+      - uses: pnpm/action-setup@v2
 
       - name: Use Node ${{ matrix.node }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
 
@@ -44,7 +48,15 @@ jobs:
             ${{ runner.os }}-pnpm-store-trpc-main-
 
       - name: Install deps (with cache)
-        run: pnpm --filter "@trpc/*" --filter root --filter tests install
+        run: pnpm --filter "@trpc/*" --filter root install
+
+      - name: Download previous bundle analysis
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          name: bundle-analysis
+          branch: main
+          path: ./downloads/previous-bundle-analysis
+          if_no_artifact_found: ignore
 
       - name: Build
         run: pnpm turbo --filter "@trpc/*" build
@@ -52,7 +64,14 @@ jobs:
       - name: Test
         run: pnpm turbo --filter tests test-ci
 
-      - uses: codecov/codecov-action@v1
+      - uses: codecov/codecov-action@v3
         with:
-          token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+          # token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
           directory: ./packages
+
+      - name: Upload new bundle analysis
+        uses: actions/upload-artifact@v4
+        if: github.ref == 'ref/head/main'
+        with:
+          name: bundle-analysis
+          path: packages/**/dist/bundle-analysis.json

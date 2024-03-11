@@ -48,7 +48,7 @@ Recommended but not enforced file structure. This is what you get when starting 
 yarn add @trpc/client @trpc/server @trpc/react @trpc/next zod react-query@3
 ```
 
-- React Query: `@trpc/react` provides a thin wrapper over [@tanstack/react-query](https://react-query.tanstack.com/overview). It is required as a peer dependency.
+- React Query: `@trpc/react` provides a thin wrapper over [@tanstack/react-query](https://tanstack.com/query/v3/docs/react/overview). It is required as a peer dependency.
 - Zod: most examples use [Zod](https://github.com/colinhacks/zod) for input validation and we highly recommended it, though it isn't required. You can use a validation library of your choice ([Yup](https://github.com/jquense/yup), [Superstruct](https://github.com/ianstormtaylor/superstruct), [io-ts](https://github.com/gcanti/io-ts), etc). In fact, any object containing a `parse`, `create` or `validateSync` method will work.
 
 ### 2. Enable strict mode
@@ -90,20 +90,18 @@ import * as trpc from '@trpc/server';
 import * as trpcNext from '@trpc/server/adapters/next';
 import { z } from 'zod';
 
-export const appRouter = trpc
-  .router()
-  .query('hello', {
-    input: z
-      .object({
-        text: z.string().nullish(),
-      })
-      .nullish(),
-    resolve({ input }) {
-      return {
-        greeting: `hello ${input?.text ?? 'world'}`,
-      };
-    },
-  });
+export const appRouter = trpc.router().query('hello', {
+  input: z
+    .object({
+      text: z.string().nullish(),
+    })
+    .nullish(),
+  resolve({ input }) {
+    return {
+      greeting: `hello ${input?.text ?? 'world'}`,
+    };
+  },
+});
 
 // export type definition of API
 export type AppRouter = typeof appRouter;
@@ -155,7 +153,7 @@ export default withTRPC<AppRouter>({
     return {
       url,
       /**
-       * @link https://react-query.tanstack.com/reference/QueryClient
+       * @link https://tanstack.com/query/v3/docs/react/reference/QueryClient
        */
       // queryClientConfig: { defaultOptions: { queries: { staleTime: 60 } } },
     };
@@ -182,7 +180,7 @@ export default function IndexPage() {
       <p>{hello.data.greeting}</p>
     </div>
   );
-};
+}
 ```
 
 ## `withTRPC()` options
@@ -197,7 +195,7 @@ The `config`-argument is a function that returns an object that configures the t
   - `links` to customize the flow of data between tRPC Client and the tRPC-server. [Read more](../client/links.md).
 
 - Optional:
-  - `queryClientConfig`: a configuration object for the React Query `QueryClient` used internally by the tRPC React hooks: [QueryClient docs](https://react-query.tanstack.com/reference/QueryClient)
+  - `queryClientConfig`: a configuration object for the React Query `QueryClient` used internally by the tRPC React hooks: [QueryClient docs](https://tanstack.com/query/v3/docs/react/reference/QueryClient)
   - `headers`: an object or a function that returns an object of outgoing tRPC requests
   - `transformer`: a transformer applied to outgoing payloads. Read more about [Data Transformers](data-transformers)
   - `fetch`: customize the implementation of `fetch` used by tRPC internally

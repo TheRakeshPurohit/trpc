@@ -1,6 +1,5 @@
 import { routerToServerAndClientNew } from './___testHelpers';
 import { initTRPC } from '@trpc/server/src';
-import { expectTypeOf } from 'expect-type';
 
 test('children', async () => {
   const t = initTRPC.create();
@@ -49,7 +48,7 @@ test('children', async () => {
   expect(await proxy.child.grandchild.foo.query()).toBe('grandchild');
   expect(await proxy.child.grandchild.mut.mutate()).toBe('mut');
 
-  return close();
+  await close();
 });
 
 test('w/o children', async () => {
@@ -60,5 +59,5 @@ test('w/o children', async () => {
     foo,
   });
 
-  expectTypeOf(router._def.procedures.foo).toMatchTypeOf(foo);
+  expectTypeOf(router._def.procedures.foo).toEqualTypeOf(foo);
 });

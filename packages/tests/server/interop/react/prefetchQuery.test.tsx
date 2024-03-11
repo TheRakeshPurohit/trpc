@@ -1,13 +1,10 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
 import { createQueryClient } from '../../__queryClient';
 import { createLegacyAppRouter } from './__testHelpers';
 import {
-  QueryClient,
-  QueryClientProvider,
   dehydrate,
+  QueryClientProvider,
   useQueryClient,
 } from '@tanstack/react-query';
-import '@testing-library/jest-dom';
 import { render, waitFor } from '@testing-library/react';
 import React, { useEffect, useState } from 'react';
 
@@ -15,8 +12,8 @@ let factory: ReturnType<typeof createLegacyAppRouter>;
 beforeEach(() => {
   factory = createLegacyAppRouter();
 });
-afterEach(() => {
-  factory.close();
+afterEach(async () => {
+  await factory.close();
 });
 
 describe('prefetchQuery()', () => {

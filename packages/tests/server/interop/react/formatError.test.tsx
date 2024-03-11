@@ -1,19 +1,16 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
 import { createQueryClient } from '../../__queryClient';
 import { createLegacyAppRouter } from './__testHelpers';
 import { QueryClientProvider } from '@tanstack/react-query';
-import '@testing-library/jest-dom';
 import { render, waitFor } from '@testing-library/react';
-import { DefaultErrorShape } from '@trpc/server/src/error/formatter';
-import { expectTypeOf } from 'expect-type';
+import type { DefaultErrorShape } from '@trpc/server/src/error/formatter';
 import React, { useEffect, useState } from 'react';
 
 let factory: ReturnType<typeof createLegacyAppRouter>;
 beforeEach(() => {
   factory = createLegacyAppRouter();
 });
-afterEach(() => {
-  factory.close();
+afterEach(async () => {
+  await factory.close();
 });
 
 test('react types test', async () => {
@@ -26,7 +23,7 @@ test('react types test', async () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    if (mutation.error && mutation.error && mutation.error.shape) {
+    if (mutation.error?.shape) {
       expectTypeOf(mutation.error.shape).toMatchTypeOf<
         DefaultErrorShape & {
           $test: string;

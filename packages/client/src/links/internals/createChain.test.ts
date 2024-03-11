@@ -1,5 +1,5 @@
 import { observable } from '@trpc/server/observable';
-import { AnyRouter } from '@trpc/server/src';
+import type { AnyRouter } from '@trpc/server/src';
 import { createChain } from './createChain';
 
 describe('chain', () => {
@@ -38,7 +38,7 @@ describe('chain', () => {
       },
     });
 
-    const next = jest.fn();
+    const next = vi.fn();
 
     result$.subscribe({ next });
     // console.log(next.mock.calls);
@@ -85,7 +85,7 @@ describe('chain', () => {
       },
     });
 
-    const next = jest.fn();
+    const next = vi.fn();
 
     result$.subscribe({ next });
 

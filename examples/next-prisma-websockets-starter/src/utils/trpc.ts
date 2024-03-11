@@ -3,7 +3,7 @@ import { loggerLink } from '@trpc/client/links/loggerLink';
 import { wsLink, createWSClient } from '@trpc/client/links/wsLink';
 import { createTRPCNext } from '@trpc/next';
 import type { inferProcedureOutput } from '@trpc/server';
-import { NextPageContext } from 'next';
+import type { NextPageContext } from 'next';
 import getConfig from 'next/config';
 import type { AppRouter } from 'server/routers/_app';
 import superjson from 'superjson';
@@ -20,14 +20,14 @@ function getEndingLink(ctx: NextPageContext | undefined) {
     return httpBatchLink({
       url: `${APP_URL}/api/trpc`,
       headers() {
-        if (ctx?.req) {
-          // on ssr, forward client's headers to the server
-          return {
-            ...ctx.req.headers,
-            'x-ssr': '1',
-          };
+        if (!ctx?.req?.headers) {
+          return {};
         }
-        return {};
+        // on ssr, forward client's headers to the server
+        return {
+          ...ctx.req.headers,
+          'x-ssr': '1',
+        };
       },
     });
   }
@@ -52,7 +52,7 @@ export const trpc = createTRPCNext<AppRouter>({
 
     return {
       /**
-       * @link https://trpc.io/docs/links
+       * @link https://trpc.io/docs/client/links
        */
       links: [
         // adds pretty logs to your console in development and logs errors in production
@@ -69,7 +69,7 @@ export const trpc = createTRPCNext<AppRouter>({
        */
       transformer: superjson,
       /**
-       * @link https://react-query.tanstack.com/reference/QueryClient
+       * @link https://tanstack.com/query/v4/docs/react/reference/QueryClient
        */
       queryClientConfig: { defaultOptions: { queries: { staleTime: 60 } } },
     };

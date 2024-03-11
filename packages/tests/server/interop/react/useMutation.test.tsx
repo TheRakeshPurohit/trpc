@@ -1,20 +1,16 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
-
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { createQueryClient } from '../../__queryClient';
 import { createLegacyAppRouter } from './__testHelpers';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import '@testing-library/jest-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { render, waitFor } from '@testing-library/react';
-import { expectTypeOf } from 'expect-type';
 import React, { useEffect, useState } from 'react';
 
 let factory: ReturnType<typeof createLegacyAppRouter>;
 beforeEach(() => {
   factory = createLegacyAppRouter();
 });
-afterEach(() => {
-  factory.close();
+afterEach(async () => {
+  await factory.close();
 });
 
 describe('useMutation()', () => {
@@ -28,16 +24,16 @@ describe('useMutation()', () => {
 
       useEffect(() => {
         (async () => {
-          await new Promise((resolve) =>
+          await new Promise((resolve) => {
             mutation.mutate(undefined, {
               onSettled: resolve,
-            }),
-          );
-          await new Promise((resolve) =>
+            });
+          });
+          await new Promise((resolve) => {
             mutation.mutate(undefined, {
               onSettled: resolve,
-            }),
-          );
+            });
+          });
 
           // @ts-expect-error
           await mutation.mutateAsync(null);
@@ -248,6 +244,7 @@ describe('useMutation()', () => {
         onError: (_error, _variables, context) => {
           expectTypeOf(context).toMatchTypeOf<'foo' | undefined>();
         },
+        // eslint-disable-next-line max-params
         onSettled: (_data, _error, _variables, context) => {
           expectTypeOf(context).toMatchTypeOf<'foo' | undefined>();
         },

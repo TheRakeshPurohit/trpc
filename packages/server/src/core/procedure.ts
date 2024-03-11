@@ -1,10 +1,10 @@
-import { AnyRootConfig } from './internals/config';
-import {
+import type { AnyRootConfig } from './internals/config';
+import type {
   ProcedureBuilderDef,
   ProcedureCallOptions,
 } from './internals/procedureBuilder';
-import { UnsetMarker } from './internals/utils';
-import { ProcedureType } from './types';
+import type { UnsetMarker } from './internals/utils';
+import type { ProcedureType } from './types';
 
 type ClientContext = Record<string, unknown>;
 
@@ -78,7 +78,7 @@ export interface Procedure<
   TParams extends ProcedureParams,
 > {
   _type: TType;
-  _def: TParams & ProcedureBuilderDef<TParams>;
+  _def: ProcedureBuilderDef<TParams> & TParams;
   /**
    * @deprecated use `._def.meta` instead
    */

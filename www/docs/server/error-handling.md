@@ -2,7 +2,7 @@
 id: error-handling
 title: Error Handling
 sidebar_label: Error Handling
-slug: /error-handling
+slug: /server/error-handling
 ---
 
 Whenever an error occurs in a procedure, tRPC responds to the client with an object that includes an "error" property. This property contains all the information that you need to handle the error in the client.
@@ -42,6 +42,7 @@ tRPC defines a list of error codes that each represent a different type of error
 | PRECONDITION_FAILED   | Access to the target resource has been denied.                                                                          | 412       |
 | PAYLOAD_TOO_LARGE     | Request entity is larger than limits defined by server.                                                                 | 413       |
 | METHOD_NOT_SUPPORTED  | The server knows the request method, but the target resource doesn't support this method.                               | 405       |
+| UNPROCESSABLE_CONTENT | The server understands the request method, and the request entity is correct, but the server was unable to process it.  | 422       |
 | TOO_MANY_REQUESTS     | The rate limit has been exceeded or too many requests are being sent to the server.                                     | 429       |
 | CLIENT_CLOSED_REQUEST | Access to the resource has been denied.                                                                                 | 499       |
 | INTERNAL_SERVER_ERROR | An unspecified error occurred.                                                                                          | 500       |
@@ -49,16 +50,16 @@ tRPC defines a list of error codes that each represent a different type of error
 tRPC exposes a helper function, `getHTTPStatusCodeFromError`, to help you extract the HTTP code from the error:
 
 ```ts twoslash
-import { TRPCError } from "@trpc/server";
+import { TRPCError } from '@trpc/server';
 // ---cut---
 import { getHTTPStatusCodeFromError } from '@trpc/server/http';
 
-// Example error you might get if your input valdidation fails
+// Example error you might get if your input validation fails
 const error: TRPCError = {
-  name: "TRPCError",
-  code: "BAD_REQUEST",
-  message: "\"password\" must be at least 4 characters"
-}
+  name: 'TRPCError',
+  code: 'BAD_REQUEST',
+  message: '"password" must be at least 4 characters',
+};
 
 if (error instanceof TRPCError) {
   const httpCode = getHTTPStatusCodeFromError(error);
@@ -122,7 +123,8 @@ All errors that occur in a procedure go through the `onError` method before bein
 ```ts title='pages/api/trpc/[trpc].ts'
 export default trpcNext.createNextApiHandler({
   // ...
-  onError({ error, type, path, input, ctx, req }) {
+  onError(opts) {
+    const { error, type, path, input, ctx, req } = opts;
     console.error('Error:', error);
     if (error.code === 'INTERNAL_SERVER_ERROR') {
       // send to bug reporting
@@ -131,7 +133,7 @@ export default trpcNext.createNextApiHandler({
 });
 ```
 
-The `onError` parameter is an object that contains all information about the error and the context it occures in:
+The `onError` parameter is an object that contains all information about the error and the context it occurs in:
 
 ```ts
 {

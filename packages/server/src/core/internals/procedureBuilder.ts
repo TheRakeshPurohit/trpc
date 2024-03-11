@@ -1,19 +1,13 @@
-import { TRPCError } from '../../error/TRPCError';
-import { getTRPCErrorFromUnknown } from '../../error/utils';
-import {
-  InferOptional,
-  MaybePromise,
-  Simplify,
-  UndefinedKeys,
-} from '../../types';
-import {
+import { getTRPCErrorFromUnknown, TRPCError } from '../../error/TRPCError';
+import type { MaybePromise, Simplify } from '../../types';
+import type {
+  MiddlewareBuilder,
   MiddlewareFunction,
   MiddlewareResult,
-  createInputMiddleware,
-  createOutputMiddleware,
 } from '../middleware';
-import { Parser, inferParser } from '../parser';
-import {
+import { createInputMiddleware, createOutputMiddleware } from '../middleware';
+import type { inferParser, Parser } from '../parser';
+import type {
   AnyMutationProcedure,
   AnyProcedure,
   AnyQueryProcedure,
@@ -21,18 +15,18 @@ import {
   Procedure,
   ProcedureParams,
 } from '../procedure';
-import { ProcedureType } from '../types';
-import { AnyRootConfig } from './config';
+import type { ProcedureType } from '../types';
+import type { AnyRootConfig } from './config';
 import { getParseFn } from './getParseFn';
 import { mergeWithoutOverrides } from './mergeWithoutOverrides';
-import {
-  DefaultValue as FallbackValue,
+import type {
+  DefaultValue,
   Overwrite,
   OverwriteKnown,
   ResolveOptions,
   UnsetMarker,
-  middlewareMarker,
 } from './utils';
+import { middlewareMarker } from './utils';
 
 type CreateProcedureReturnInput<
   TPrev extends ProcedureParams,
@@ -41,10 +35,12 @@ type CreateProcedureReturnInput<
   _config: TPrev['_config'];
   _meta: TPrev['_meta'];
   _ctx_out: Overwrite<TPrev['_ctx_out'], TNext['_ctx_out']>;
-  _input_in: FallbackValue<TNext['_input_in'], TPrev['_input_in']>;
-  _input_out: FallbackValue<TNext['_input_out'], TPrev['_input_out']>;
-  _output_in: FallbackValue<TNext['_output_in'], TPrev['_output_in']>;
-  _output_out: FallbackValue<TNext['_output_out'], TPrev['_output_out']>;
+  _input_in: TPrev['_input_in'];
+  _input_out: UnsetMarker extends TNext['_input_out']
+    ? TPrev['_input_out']
+    : Overwrite<TPrev['_input_out'], TNext['_input_out']>;
+  _output_in: DefaultValue<TNext['_output_in'], TPrev['_output_in']>;
+  _output_out: DefaultValue<TNext['_output_out'], TPrev['_output_out']>;
 }>;
 
 /**
@@ -67,19 +63,9 @@ export interface BuildProcedure<
       : TParams
   > {}
 
-type Merge<TType, TWith> = {
-  [TKey in keyof TType | keyof TWith]: TKey extends keyof TType
-    ? TKey extends keyof TWith
-      ? TType[TKey] & TWith[TKey]
-      : TType[TKey]
-    : TWith[TKey & keyof TWith];
-};
-
 type OverwriteIfDefined<TType, TWith> = UnsetMarker extends TType
   ? TWith
-  : Simplify<
-      InferOptional<Merge<TType, TWith>, UndefinedKeys<Merge<TType, TWith>>>
-    >;
+  : Simplify<TType & TWith>;
 
 type ErrorMessage<TMessage extends string> = TMessage;
 
@@ -103,9 +89,13 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
   input<$Parser extends Parser>(
     schema: TParams['_input_out'] extends UnsetMarker
       ? $Parser
-      : inferParser<$Parser>['out'] extends Record<string, unknown>
-      ? TParams['_input_out'] extends Record<string, unknown>
-        ? $Parser
+      : inferParser<$Parser>['out'] extends Record<string, unknown> | undefined
+      ? TParams['_input_out'] extends Record<string, unknown> | undefined
+        ? undefined extends inferParser<$Parser>['out'] // if current is optional the previous must be too
+          ? undefined extends TParams['_input_out']
+            ? $Parser
+            : ErrorMessage<'Cannot chain an optional parser to a required parser'>
+          : $Parser
         : ErrorMessage<'All input parsers did not resolve to an object'>
       : ErrorMessage<'All input parsers did not resolve to an object'>,
   ): ProcedureBuilder<{
@@ -146,7 +136,9 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
    * Add a middleware to the procedure.
    */
   use<$Params extends ProcedureParams>(
-    fn: MiddlewareFunction<TParams, $Params>,
+    fn:
+      | MiddlewareBuilder<TParams, $Params>
+      | MiddlewareFunction<TParams, $Params>,
   ): CreateProcedureReturnInput<TParams, $Params>;
   /**
    * Extend the procedure with another procedure.
@@ -163,7 +155,7 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
   query<$Output>(
     resolver: (
       opts: ResolveOptions<TParams>,
-    ) => MaybePromise<FallbackValue<TParams['_output_in'], $Output>>,
+    ) => MaybePromise<DefaultValue<TParams['_output_in'], $Output>>,
   ): BuildProcedure<'query', TParams, $Output>;
 
   /**
@@ -172,7 +164,7 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
   mutation<$Output>(
     resolver: (
       opts: ResolveOptions<TParams>,
-    ) => MaybePromise<FallbackValue<TParams['_output_in'], $Output>>,
+    ) => MaybePromise<DefaultValue<TParams['_output_in'], $Output>>,
   ): BuildProcedure<'mutation', TParams, $Output>;
 
   /**
@@ -181,7 +173,7 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
   subscription<$Output>(
     resolver: (
       opts: ResolveOptions<TParams>,
-    ) => MaybePromise<FallbackValue<TParams['_output_in'], $Output>>,
+    ) => MaybePromise<DefaultValue<TParams['_output_in'], $Output>>,
   ): BuildProcedure<'subscription', TParams, $Output>;
   /**
    * @internal
@@ -201,18 +193,19 @@ function createNewBuilder(
   def1: AnyProcedureBuilderDef,
   def2: Partial<AnyProcedureBuilderDef>,
 ) {
-  const { middlewares = [], inputs, ...rest } = def2;
+  const { middlewares = [], inputs, meta, ...rest } = def2;
 
   // TODO: maybe have a fn here to warn about calls
   return createBuilder({
     ...mergeWithoutOverrides(def1, rest),
     inputs: [...def1.inputs, ...(inputs ?? [])],
     middlewares: [...def1.middlewares, ...middlewares],
-  } as any);
+    meta: def1.meta && meta ? { ...def1.meta, ...meta } : meta ?? def1.meta,
+  });
 }
 
 export function createBuilder<TConfig extends AnyRootConfig>(
-  initDef?: AnyProcedureBuilderDef,
+  initDef: Partial<AnyProcedureBuilderDef> = {},
 ): ProcedureBuilder<{
   _config: TConfig;
   _ctx_out: TConfig['$types']['ctx'];
@@ -222,9 +215,10 @@ export function createBuilder<TConfig extends AnyRootConfig>(
   _output_out: UnsetMarker;
   _meta: TConfig['$types']['meta'];
 }> {
-  const _def: AnyProcedureBuilderDef = initDef || {
+  const _def: AnyProcedureBuilderDef = {
     inputs: [],
     middlewares: [],
+    ...initDef,
   };
 
   return {
@@ -248,12 +242,22 @@ export function createBuilder<TConfig extends AnyRootConfig>(
         meta: meta as Record<string, unknown>,
       }) as AnyProcedureBuilder;
     },
+    /**
+     * @deprecated
+     * This functionality is deprecated and will be removed in the next major version.
+     */
     unstable_concat(builder) {
       return createNewBuilder(_def, builder._def) as any;
     },
-    use(middleware) {
+    use(middlewareBuilderOrFn) {
+      // Distinguish between a middleware builder and a middleware function
+      const middlewares =
+        '_middlewares' in middlewareBuilderOrFn
+          ? middlewareBuilderOrFn._middlewares
+          : [middlewareBuilderOrFn];
+
       return createNewBuilder(_def, {
-        middlewares: [middleware],
+        middlewares: middlewares as ProcedureBuilderMiddleware[],
       }) as AnyProcedureBuilder;
     },
     query(resolver) {
@@ -311,14 +315,8 @@ export interface ProcedureCallOptions {
 }
 
 const codeblock = `
-If you want to call this function on the server, you do the following:
 This is a client-only function.
-
-const caller = appRouter.createCaller({
-  /* ... your context */
-});
-
-const result = await caller.call('myProcedure', input);
+If you want to call this function on the server, see https://trpc.io/docs/server/server-side-calls
 `.trim();
 
 function createProcedureCaller(_def: AnyProcedureBuilderDef): AnyProcedure {
@@ -330,7 +328,12 @@ function createProcedureCaller(_def: AnyProcedureBuilderDef): AnyProcedure {
 
     // run the middlewares recursively with the resolver as the last one
     const callRecursive = async (
-      callOpts: { ctx: any; index: number; input?: unknown } = {
+      callOpts: {
+        ctx: any;
+        index: number;
+        input?: unknown;
+        rawInput?: unknown;
+      } = {
         index: 0,
         ctx: opts.ctx,
       },
@@ -342,11 +345,19 @@ function createProcedureCaller(_def: AnyProcedureBuilderDef): AnyProcedure {
           ctx: callOpts.ctx,
           type: opts.type,
           path: opts.path,
-          rawInput: opts.rawInput,
+          rawInput: callOpts.rawInput ?? opts.rawInput,
           meta: _def.meta,
           input: callOpts.input,
-          next: async (nextOpts?: { ctx: any; input?: any }) => {
-            return await callRecursive({
+          next(_nextOpts?: any) {
+            const nextOpts = _nextOpts as
+              | {
+                  ctx?: Record<string, unknown>;
+                  input?: unknown;
+                  rawInput?: unknown;
+                }
+              | undefined;
+
+            return callRecursive({
               index: callOpts.index + 1,
               ctx:
                 nextOpts && 'ctx' in nextOpts
@@ -356,6 +367,10 @@ function createProcedureCaller(_def: AnyProcedureBuilderDef): AnyProcedure {
                 nextOpts && 'input' in nextOpts
                   ? nextOpts.input
                   : callOpts.input,
+              rawInput:
+                nextOpts && 'rawInput' in nextOpts
+                  ? nextOpts.rawInput
+                  : callOpts.rawInput,
             });
           },
         });

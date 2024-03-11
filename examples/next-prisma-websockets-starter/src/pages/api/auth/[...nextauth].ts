@@ -1,5 +1,5 @@
 import NextAuth from 'next-auth';
-import { AppProviders } from 'next-auth/providers';
+import type { AppProviders } from 'next-auth/providers';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GithubProvider from 'next-auth/providers/github';
 
@@ -20,12 +20,12 @@ if (useMockProvider) {
       name: 'Mocked GitHub',
       async authorize(credentials) {
         if (credentials) {
-          const user = {
-            id: credentials.name,
-            name: credentials.name,
-            email: credentials.name,
+          const name = credentials.name;
+          return {
+            id: name,
+            name: name,
+            email: name,
           };
-          return user;
         }
         return null;
       },

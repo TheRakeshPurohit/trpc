@@ -1,18 +1,16 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
-
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { createLegacyAppRouter } from './__testHelpers';
 import { render, waitFor } from '@testing-library/react';
 import { withTRPC } from '@trpc/next/src';
-import { AppType } from 'next/dist/shared/lib/utils';
+import type { AppType } from 'next/dist/shared/lib/utils';
 import React from 'react';
 
 let factory: ReturnType<typeof createLegacyAppRouter>;
 beforeEach(() => {
   factory = createLegacyAppRouter();
 });
-afterEach(() => {
-  factory.close();
+afterEach(async () => {
+  await factory.close();
 });
 
 describe('withTRPC()', () => {
@@ -63,7 +61,7 @@ describe('withTRPC()', () => {
           getNextPageParam: (lastPage) => lastPage.nextCursor,
         },
       );
-      return <>{JSON.stringify(query.data || query.error)}</>;
+      return <>{JSON.stringify(query.data ?? query.error)}</>;
     };
 
     const Wrapped = withTRPC({
@@ -162,7 +160,7 @@ describe('withTRPC()', () => {
             },
           },
         );
-        return <>{JSON.stringify(query.data || query.error)}</>;
+        return <>{JSON.stringify(query.data ?? query.error)}</>;
       };
 
       const Wrapped = withTRPC({

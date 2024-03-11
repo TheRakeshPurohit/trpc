@@ -1,6 +1,5 @@
 import { routerToServerAndClientNew } from './___testHelpers';
 import { initTRPC } from '@trpc/server/src';
-import { expectTypeOf } from 'expect-type';
 import { konn } from 'konn';
 
 test('meta is undefined in a middleware', () => {
@@ -24,7 +23,7 @@ describe('meta', () => {
 
   const ctx = konn()
     .beforeEach(() => {
-      const middlewareCalls = jest.fn((_opts: Meta | undefined) => {
+      const middlewareCalls = vi.fn((_opts: Meta | undefined) => {
         // noop
       });
       const baseProc = t.procedure.use(({ next, meta }) => {

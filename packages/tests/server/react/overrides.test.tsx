@@ -1,10 +1,12 @@
 import { routerToServerAndClientNew } from '../___testHelpers';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { createTRPCReact } from '@trpc/react-query';
 import { initTRPC } from '@trpc/server';
 import { konn } from 'konn';
-import React, { ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import React from 'react';
 import { z } from 'zod';
 
 describe('mutation override', () => {
@@ -14,7 +16,7 @@ describe('mutation override', () => {
       interface Post {
         title: string;
       }
-      const onSuccessSpy = jest.fn();
+      const onSuccessSpy = vi.fn();
 
       const posts: Post[] = [];
 
@@ -28,7 +30,7 @@ describe('mutation override', () => {
       });
       const opts = routerToServerAndClientNew(appRouter);
       const trpc = createTRPCReact<typeof appRouter>({
-        unstable_overrides: {
+        overrides: {
           useMutation: {
             async onSuccess(opts) {
               if (!opts.meta.skipInvalidate) {
@@ -73,7 +75,12 @@ describe('mutation override', () => {
 
       return (
         <>
-          <button onClick={() => mutation.mutate(nonce)} data-testid="add">
+          <button
+            onClick={() => {
+              mutation.mutate(nonce);
+            }}
+            data-testid="add"
+          >
             add
           </button>
           <pre>{JSON.stringify(listQuery.data ?? null, null, 4)}</pre>
@@ -87,7 +94,7 @@ describe('mutation override', () => {
       </ctx.App>,
     );
 
-    $.getByTestId('add').click();
+    await userEvent.click($.getByTestId('add'));
 
     await waitFor(() => {
       expect($.container).toHaveTextContent(nonce);
@@ -102,12 +109,17 @@ describe('mutation override', () => {
       const mutation = trpc.add.useMutation({
         meta: {
           skipInvalidate: true,
-        } as any,
+        },
       });
 
       return (
         <>
-          <button onClick={() => mutation.mutate(nonce)} data-testid="add">
+          <button
+            onClick={() => {
+              mutation.mutate(nonce);
+            }}
+            data-testid="add"
+          >
             add
           </button>
           <pre>{JSON.stringify(listQuery.data ?? null, null, 4)}</pre>
@@ -121,13 +133,13 @@ describe('mutation override', () => {
       </ctx.App>,
     );
 
-    $.getByTestId('add').click();
+    await userEvent.click($.getByTestId('add'));
 
     await waitFor(() => {
       expect(ctx.onSuccessSpy).toHaveBeenCalledTimes(1);
     });
 
-    expect(ctx.onSuccessSpy.mock.calls[0][0].meta).toMatchInlineSnapshot(`
+    expect(ctx.onSuccessSpy.mock.calls[0]![0]!.meta).toMatchInlineSnapshot(`
       Object {
         "skipInvalidate": true,
       }

@@ -1,9 +1,6 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import { EventEmitter } from 'events';
 import * as trpc from '@trpc/server/src';
 import * as trpcNext from '@trpc/server/src/adapters/next';
-import { EventEmitter } from 'events';
 
 function mockReq({
   query,
@@ -26,9 +23,10 @@ function mockReq({
 
   req.method = method;
   req.query = query;
+  req.headers = {};
 
   const socket = {
-    destroy: jest.fn(),
+    destroy: vi.fn(),
   };
   req.socket = socket;
 
@@ -44,9 +42,9 @@ function mockReq({
 function mockRes() {
   const res = new EventEmitter() as any;
 
-  const json = jest.fn(() => res);
-  const setHeader = jest.fn(() => res);
-  const end = jest.fn(() => res);
+  const json = vi.fn(() => res);
+  const setHeader = vi.fn(() => res);
+  const end = vi.fn(() => res);
   res.json = json;
   res.setHeader = setHeader;
   res.end = end;

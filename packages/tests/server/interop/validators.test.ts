@@ -1,8 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { legacyRouterToServerAndClient } from './__legacyRouterToServerAndClient';
-import '@testing-library/jest-dom';
 import * as trpc from '@trpc/server/src';
-import { expectTypeOf } from 'expect-type';
 import myzod from 'myzod';
 import * as t from 'superstruct';
 import * as yup from 'yup';
@@ -18,7 +15,7 @@ test('no validator', async () => {
   const { client, close } = legacyRouterToServerAndClient(router);
   const res = await client.query('hello');
   expect(res).toBe('test');
-  close();
+  await close();
 });
 
 test('zod', async () => {
@@ -47,7 +44,7 @@ test('zod', async () => {
           ]]
         `);
   expect(res.input).toBe(123);
-  close();
+  await close();
 });
 
 test('zod async', async () => {
@@ -79,7 +76,7 @@ test('zod async', async () => {
       "input": "foo",
     }
   `);
-  close();
+  await close();
 });
 
 test('zod transform mixed input/output', async () => {
@@ -124,7 +121,7 @@ test('zod transform mixed input/output', async () => {
           ]]
         `);
 
-  close();
+  await close();
 });
 
 test('superstruct', async () => {
@@ -145,7 +142,7 @@ test('superstruct', async () => {
     `[TRPCClientError: Expected a number, but received: "123"]`,
   );
   expect(res.input).toBe(123);
-  close();
+  await close();
 });
 
 test('yup', async () => {
@@ -166,7 +163,7 @@ test('yup', async () => {
     `[TRPCClientError: this must be a \`number\` type, but the final value was: \`NaN\` (cast from the value \`"asd"\`).]`,
   );
   expect(res.input).toBe(123);
-  close();
+  await close();
 });
 
 test('myzod', async () => {
@@ -185,7 +182,7 @@ test('myzod', async () => {
     `[TRPCClientError: expected type to be number but got string]`,
   );
   expect(res.input).toBe(123);
-  close();
+  await close();
 });
 
 test('validator fn', async () => {
@@ -210,7 +207,7 @@ test('validator fn', async () => {
     `[TRPCClientError: Not a number]`,
   );
   expect(res.input).toBe(123);
-  close();
+  await close();
 });
 
 test('async validator fn', async () => {
@@ -235,5 +232,5 @@ test('async validator fn', async () => {
     `[TRPCClientError: Not a number]`,
   );
   expect(res.input).toBe(123);
-  close();
+  await close();
 });

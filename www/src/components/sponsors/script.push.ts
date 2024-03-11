@@ -1,41 +1,40 @@
 // Don't judge me on this code
 import fs from 'fs';
-import { sponsors } from './script.output';
-import { getMultiplier } from './utils';
+import { allSponsors } from './script.output';
 
-type Sponsor = typeof sponsors[number];
+const sponsors = [...allSponsors].sort((a, b) => b.weight - a.weight);
+
+type Sponsor = (typeof allSponsors)[number];
 type ValidLogins = Sponsor['login'];
 
 interface Def {
+  diamond: ValidLogins[];
   gold: ValidLogins[];
   silver: ValidLogins[];
   bronze: ValidLogins[];
 }
 
 const sections: Def = {
+  diamond: [],
   gold: [
     //
-    'renderinc',
-    'calcom',
+    'tolahq',
   ],
   silver: [
     //
     'JasonDocton',
-    'pingdotgg',
-    'prisma',
+    // 'flightcontrolhq',
   ],
   bronze: [
-    'newfront-insurance',
+    //
     'hidrb',
-    'chimon2000',
-    'snaplet',
     'flylance-apps',
     'echobind',
-    'interval',
   ],
 };
 
 interface Buckets {
+  diamond: Sponsor[];
   gold: Sponsor[];
   silver: Sponsor[];
   bronze: Sponsor[];
@@ -43,24 +42,18 @@ interface Buckets {
 }
 
 const buckets: Buckets = {
+  diamond: [],
   gold: [],
   silver: [],
   bronze: [],
   other: [],
 };
 
-const sortedSponsors = sponsors
-  .map((sponsor) => {
-    return {
-      ...sponsor,
-      value: getMultiplier(sponsor.createdAt) * sponsor.monthlyPriceInDollars,
-    };
-  })
-  .sort((a, b) => b.value - a.value);
-
-for (const sponsor of sortedSponsors) {
+for (const sponsor of sponsors) {
   const { login } = sponsor;
-  const section = sections.gold.includes(login)
+  const section = sections.diamond.includes(login)
+    ? 'diamond'
+    : sections.gold.includes(login)
     ? 'gold'
     : sections.silver.includes(login)
     ? 'silver'
@@ -79,6 +72,11 @@ const bucketConfig: Record<
     imgSize: number;
   }
 > = {
+  diamond: {
+    title: '💎 Diamond Sponsors',
+    numCols: 2,
+    imgSize: 180,
+  },
   gold: {
     title: '🥇 Gold Sponsors',
     numCols: 3,
@@ -95,7 +93,7 @@ const bucketConfig: Record<
     imgSize: 120,
   },
   other: {
-    title: '😻 Individuals',
+    title: '😻 Smaller Backers',
     numCols: 6,
     imgSize: 100,
   },
@@ -105,6 +103,10 @@ const markdown: string[] = [];
 
 for (const [k, config] of Object.entries(bucketConfig)) {
   const key = k as keyof Buckets;
+
+  if (buckets[key].length === 0) {
+    continue;
+  }
   markdown.push(`### ${config.title}`);
 
   const cols = buckets[key].map(
@@ -165,7 +167,7 @@ for (const file of files) {
       '',
       '<!-- markdownlint-restore -->',
       '<!-- prettier-ignore-end -->',
-      '',
+      '\n',
     ].join('\n'),
   );
   fs.writeFileSync(file, newContents);

@@ -1,5 +1,5 @@
-import { TRPCError } from '../../error/TRPCError';
-import { ProcedureType } from '../router';
+import type { TRPCError } from '../../error/TRPCError';
+import type { ProcedureType } from '../router';
 
 /**
  * @deprecated
@@ -40,8 +40,8 @@ interface MiddlewareErrorResult<TContext>
  * @deprecated
  */
 export type MiddlewareResult<TContext> =
-  | MiddlewareOKResult<TContext>
-  | MiddlewareErrorResult<TContext>;
+  | MiddlewareErrorResult<TContext>
+  | MiddlewareOKResult<TContext>;
 
 /**
  * @deprecated

@@ -1,7 +1,8 @@
-import { AnyRouter } from '@trpc/server';
+import type { AnyRouter } from '@trpc/server';
 import { createRecursiveProxy } from '@trpc/server/shared';
-import { getQueryKey } from '../../internals/getQueryKey';
-import { CreateReactQueryHooks } from '../hooks/createHooksInternal';
+import { getArrayQueryKey } from '../../internals/getArrayQueryKey';
+import { getQueryKeyInternal } from '../../internals/getQueryKey';
+import type { CreateReactQueryHooks } from '../hooks/createRootHooks';
 
 /**
  * Create proxy for decorating procedures
@@ -27,7 +28,19 @@ export function createReactProxyDecoration<
     }
     const [input, ...rest] = args;
 
-    const queryKey = getQueryKey(path, input);
+    const queryKey = getQueryKeyInternal(path, input);
+
+    // Expose queryKey helper
+    if (lastArg === 'getQueryKey') {
+      return getArrayQueryKey(queryKey, (rest[0] as any) ?? 'any');
+    }
+
+    if (lastArg === '_def') {
+      return {
+        path: pathCopy,
+      };
+    }
+
     if (lastArg.startsWith('useSuspense')) {
       const opts = rest[0] || {};
       const fn =

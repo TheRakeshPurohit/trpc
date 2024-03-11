@@ -1,4 +1,5 @@
-import { Logger, QueryClient, QueryClientConfig } from '@tanstack/react-query';
+import type { Logger, QueryClientConfig } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
 
 type Config = Omit<Partial<QueryClientConfig>, 'logger'>;
 export function createQueryClientConfig(config: Config | undefined) {
@@ -7,9 +8,9 @@ export function createQueryClientConfig(config: Config | undefined) {
     // noop
   };
   const logger = {
-    error: jest.fn(noopLogFn),
-    warn: jest.fn(noopLogFn),
-    log: jest.fn(noopLogFn),
+    error: vi.fn(noopLogFn),
+    warn: vi.fn(noopLogFn),
+    log: vi.fn(noopLogFn),
   };
   return {
     ...config,

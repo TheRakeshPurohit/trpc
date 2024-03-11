@@ -1,37 +1,71 @@
-import {
+/* istanbul ignore file -- @preserve */
+// We're testing this through E2E-testing
+import type {
   CreateReactUtilsProxy,
   DecoratedProcedureRecord,
+  TRPCUseQueries,
+} from '@trpc/react-query/shared';
+import {
   createHooksInternal,
   createReactProxyDecoration,
   createReactQueryUtilsProxy,
 } from '@trpc/react-query/shared';
-import { AnyRouter } from '@trpc/server';
+import type { AnyRouter, ProtectedIntersection } from '@trpc/server';
 import { createFlatProxy } from '@trpc/server/shared';
-import { NextPageContext } from 'next/types';
+import type { NextPageContext } from 'next/types';
 import { useMemo } from 'react';
-import { WithTRPCNoSSROptions, WithTRPCSSROptions, withTRPC } from './withTRPC';
+import type { WithTRPCNoSSROptions, WithTRPCSSROptions } from './withTRPC';
+import { withTRPC } from './withTRPC';
+
+/**
+ * @internal
+ */
+export interface CreateTRPCNextBase<
+  TRouter extends AnyRouter,
+  TSSRContext extends NextPageContext,
+> {
+  /**
+   * @deprecated renamed to `useUtils` and will be removed in a future tRPC version
+   *
+   * @see https://trpc.io/docs/client/react/useUtils
+   */
+  useContext(): CreateReactUtilsProxy<TRouter, TSSRContext>;
+  /**
+   * @see https://trpc.io/docs/client/react/useUtils
+   */
+  useUtils(): CreateReactUtilsProxy<TRouter, TSSRContext>;
+  withTRPC: ReturnType<typeof withTRPC<TRouter, TSSRContext>>;
+  useQueries: TRPCUseQueries<TRouter>;
+}
+
+/**
+ * @internal
+ */
+export type CreateTRPCNext<
+  TRouter extends AnyRouter,
+  TSSRContext extends NextPageContext,
+  TFlags,
+> = ProtectedIntersection<
+  CreateTRPCNextBase<TRouter, TSSRContext>,
+  DecoratedProcedureRecord<TRouter['_def']['record'], TFlags>
+>;
 
 export function createTRPCNext<
   TRouter extends AnyRouter,
   TSSRContext extends NextPageContext = NextPageContext,
   TFlags = null,
->(opts: WithTRPCNoSSROptions<TRouter> | WithTRPCSSROptions<TRouter>) {
-  const hooks = createHooksInternal<TRouter, TSSRContext>({
-    unstable_overrides: opts.unstable_overrides,
-  });
+>(
+  opts: WithTRPCNoSSROptions<TRouter> | WithTRPCSSROptions<TRouter>,
+): CreateTRPCNext<TRouter, TSSRContext, TFlags> {
+  const hooks = createHooksInternal<TRouter, TSSRContext>(opts);
 
   // TODO: maybe set TSSRContext to `never` when using `WithTRPCNoSSROptions`
-  const _withTRPC = withTRPC<TRouter, TSSRContext>(opts);
+  const _withTRPC = withTRPC(opts);
 
-  type CreateTRPCNext = {
-    useContext(): CreateReactUtilsProxy<TRouter, TSSRContext>;
-    withTRPC: typeof _withTRPC;
-  } & DecoratedProcedureRecord<TRouter['_def']['record'], TFlags>;
-
-  return createFlatProxy<CreateTRPCNext>((key) => {
-    if (key === 'useContext') {
+  return createFlatProxy((key) => {
+    if (key === 'useContext' || key === 'useUtils') {
       return () => {
-        const context = hooks.useContext();
+        const context = hooks.useUtils();
         // create a stable reference of the utils context
         return useMemo(() => {
           return (createReactQueryUtilsProxy as any)(context);
@@ -39,10 +73,14 @@ export function createTRPCNext<
       };
     }
 
+    if (key === 'useQueries') {
+      return hooks.useQueries;
+    }
+
     if (key === 'withTRPC') {
       return _withTRPC;
     }
 
-    return createReactProxyDecoration(key as string, hooks);
+    return createReactProxyDecoration(key, hooks);
   });
 }

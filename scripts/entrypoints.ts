@@ -5,15 +5,19 @@ import prettier from 'prettier';
 // minimal version of PackageJson type necessary
 export type PackageJson = {
   name: string;
-  exports: Record<string, { import: string; require: string; default: string }>;
+  exports: Record<
+    string,
+    { import: string; require: string; default: string } | string
+  >;
   files: string[];
   dependencies: Record<string, string>;
   pnpm: {
     overrides: Record<string, string>;
   };
+  funding: string[];
 };
 
-// create directories on the way if they dont exist
+// create directories on the way if they don't exist
 function writeFileSyncRecursive(filePath: string, content: string) {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
@@ -22,14 +26,14 @@ function writeFileSyncRecursive(filePath: string, content: string) {
   fs.writeFileSync(filePath, content, 'utf8');
 }
 
-export function generateEntrypoints(inputs: string[]) {
+export async function generateEntrypoints(inputs: string[]) {
   // set some defaults for the package.json
-  const pkgJson: PackageJson = JSON.parse(
-    fs.readFileSync(path.resolve('package.json'), 'utf8'),
-  );
+  const pkgJsonPath = path.resolve('package.json');
+  const pkgJson: PackageJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
 
   pkgJson.files = ['dist', 'src', 'README.md'];
   pkgJson.exports = {
+    './package.json': './package.json',
     '.': {
       import: './dist/index.mjs',
       require: './dist/index.js',
@@ -37,13 +41,17 @@ export function generateEntrypoints(inputs: string[]) {
     },
   };
 
+  // Added to turbo.json pipeline output to ensure cache works
+  const scriptOutputs = new Set<string>();
+  scriptOutputs.add('package.json');
+
   /** Parse the inputs to get the user-import-paths, e.g.
-   *   src/adapters/aws-lambda/index.ts -> adapters/aws-lambda
-   *   src/adapters/express.ts -> adapters/express
+   *  src/adapters/aws-lambda/index.ts -> adapters/aws-lambda
+   *  src/adapters/express.ts -> adapters/express
    *
    *  Also, write to the package.json exports field, e.g.
-   *   src/adapters/aws-lambda/index.ts -> exports['adapters/aws-lambda'] = { import: './dist/adapters/aws-lambda/index.mjs', ... }
-   *   src/adapters/express.ts -> exports['adapters/express'] = { import: './dist/adapters/express.mjs', ... }
+   *  src/adapters/aws-lambda/index.ts -> exports['adapters/aws-lambda'] = { import: './dist/adapters/aws-lambda/index.mjs', ... }
+   *  src/adapters/express.ts -> exports['adapters/express'] = { import: './dist/adapters/express.mjs', ... }
    */
   inputs
     .filter((i) => i !== 'src/index.ts') // index included by default above
@@ -53,7 +61,7 @@ export function generateEntrypoints(inputs: string[]) {
       const pathWithoutSrc = parts.join('/');
 
       // if filename is index.ts, importPath is path until index.ts,
-      // otherwise, importPath is the path without the fileextension
+      // otherwise, importPath is the path without the file extension
       const importPath =
         parts.at(-1) === 'index.ts'
           ? parts.slice(0, -1).join('/')
@@ -94,13 +102,28 @@ export function generateEntrypoints(inputs: string[]) {
     if (!topLevel) return;
     if (pkgJson.files.includes(topLevel)) return;
     pkgJson.files.push(topLevel);
+
+    if (topLevel !== 'package.json') scriptOutputs.add(topLevel + '/**');
   });
+
+  // Exclude test files in builds
+  pkgJson.files.push('!**/*.test.*');
+  // Add `funding` in all packages
+  pkgJson.funding = ['https://trpc.io/sponsor'];
 
   // write package.json
   const formattedPkgJson = prettier.format(JSON.stringify(pkgJson), {
     parser: 'json-stringify',
-    printWidth: 80,
-    endOfLine: 'auto',
+    ...(await prettier.resolveConfig(pkgJsonPath)),
   });
-  fs.writeFileSync(path.resolve('package.json'), formattedPkgJson, 'utf8');
+  fs.writeFileSync(pkgJsonPath, formattedPkgJson, 'utf8');
+
+  const turboPath = path.resolve('turbo.json');
+  const turboJson = JSON.parse(fs.readFileSync(turboPath, 'utf8'));
+  turboJson.pipeline['codegen-entrypoints'].outputs = [...scriptOutputs];
+  const formattedTurboJson = prettier.format(JSON.stringify(turboJson), {
+    parser: 'json',
+    ...(await prettier.resolveConfig(turboPath)),
+  });
+  fs.writeFileSync(turboPath, formattedTurboJson, 'utf8');
 }

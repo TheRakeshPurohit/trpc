@@ -5,25 +5,21 @@ sidebar_label: Subscriptions / WebSockets
 slug: /subscriptions
 ---
 
-:::info
-Subscriptions & WebSockets are in beta & might change without a major version bump. However, feel free to use them and report any issue you may find on [GitHub](https://github.com/trpc/trpc)
-:::
-
 ## Using Subscriptions
 
 :::tip
 
 - For a full-stack example have a look at [/examples/next-prisma-starter-websockets](https://github.com/trpc/examples-next-prisma-starter-websockets).
-- For a bare-minumum Node.js example see [/examples/standalone-server](https://github.com/trpc/trpc/tree/main/examples/standalone-server).
+- For a bare-minimum Node.js example see [/examples/standalone-server](https://github.com/trpc/trpc/tree/main/examples/standalone-server).
 
 :::
 
 ### Adding a subscription procedure
 
 ```tsx title='server/router.ts'
+import { EventEmitter } from 'events';
 import { initTRPC } from '@trpc/server';
 import { observable } from '@trpc/server/observable';
-import { EventEmitter } from 'events';
 import { z } from 'zod';
 
 // create a global event emitter (could be replaced by redis, etc)
@@ -33,8 +29,6 @@ const t = initTRPC.create();
 
 export const appRouter = t.router({
   onAdd: t.procedure.subscription(() => {
-    // `resolve()` is triggered for each client when they start subscribing `onAdd`
-
     // return an `observable` with a callback which is triggered immediately
     return observable<Post>((emit) => {
       const onAdd = (data: Post) => {
@@ -58,8 +52,8 @@ export const appRouter = t.router({
         text: z.string().min(1),
       }),
     )
-    .mutation(async ({ input }) => {
-      const post = { ...input }; /* [..] add to db */
+    .mutation(async (opts) => {
+      const post = { ...opts.input }; /* [..] add to db */
 
       ee.emit('add', post);
       return post;
@@ -102,7 +96,7 @@ process.on('SIGTERM', () => {
 ### Setting `TRPCClient` to use WebSockets
 
 :::tip
-You can [use Links](../client/links/index.md) to route queries and/or mutations to HTTP transport and subscriptions over WebSockets.
+You can use [Links](../client/links/overview.md) to route queries and/or mutations to HTTP transport and subscriptions over WebSockets.
 :::
 
 ```tsx title='client.ts'
@@ -223,4 +217,4 @@ See https://www.jsonrpc.org/specification#error_object or [Error Formatting](../
 
 ### `{ id: null, type: 'reconnect' }`
 
-Tells clients to reconnect before shutting down server. Invoked by `wssHandler.broadcastReconnectNotification()`.
+Tells clients to reconnect before shutting down the server. Invoked by `wssHandler.broadcastReconnectNotification()`.

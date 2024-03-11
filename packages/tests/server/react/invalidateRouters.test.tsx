@@ -17,34 +17,34 @@ export type Post = {
 const ctx = konn()
   .beforeEach(() => {
     /**
-     * An object of jest functions we can use to track how many times things
+     * An object of Vitest functions we can use to track how many times things
      * have been called during invalidation etc.
      */
     const resolvers = {
       user: {
-        listAll: jest.fn(),
+        listAll: vi.fn(),
         byId: {
-          '1': jest.fn(),
-          '2': jest.fn(),
+          '1': vi.fn(),
+          '2': vi.fn(),
         },
         details: {
           getByUserId: {
-            '1': jest.fn(),
-            '2': jest.fn(),
+            '1': vi.fn(),
+            '2': vi.fn(),
           },
         },
       },
-      'user.current.email.getMain': jest.fn(),
+      'user.current.email.getMain': vi.fn(),
       posts: {
-        getAll: jest.fn(),
-        getAllInfinite: jest.fn(),
+        getAll: vi.fn(),
+        getAllInfinite: vi.fn(),
         byId: {
-          '1': jest.fn(),
-          '2': jest.fn(),
+          '1': vi.fn(),
+          '2': vi.fn(),
         },
         'comments.getById': {
-          1: jest.fn(),
-          2: jest.fn(),
+          1: vi.fn(),
+          2: vi.fn(),
         },
       },
     };
@@ -133,9 +133,8 @@ const ctx = konn()
             const limit = input.limit ?? 50;
             const { cursor } = input;
             let nextCursor: typeof cursor = null;
-            for (let index = 0; index < db.posts.length; index++) {
-              const element = db.posts[index]!;
-              if (cursor != null && element!.createdAt < cursor) {
+            for (const element of db.posts) {
+              if (cursor != null && element.createdAt < cursor) {
                 continue;
               }
               items.push(element);
@@ -191,7 +190,7 @@ const ctx = konn()
  * A hook that will subscribe the component to all the hooks for the
  * invalidation test.
  */
-const useSetupAllTestHooks = (proxy: typeof ctx['proxy']) => {
+const useSetupAllTestHooks = (proxy: (typeof ctx)['proxy']) => {
   const hooks = {
     user: {
       listAll: proxy.user.listAll.useQuery(),
@@ -238,7 +237,7 @@ test('Check invalidation of Whole router', async () => {
     useSetupAllTestHooks(ctx.proxy);
     const isFetching = useIsFetching();
 
-    const utils = proxy.useContext();
+    const utils = proxy.useUtils();
 
     return (
       <div>
@@ -303,7 +302,7 @@ test('Check invalidating at router root invalidates all', async () => {
     useSetupAllTestHooks(ctx.proxy);
     const isFetching = useIsFetching();
 
-    const utils = proxy.useContext();
+    const utils = proxy.useUtils();
 
     return (
       <div>
@@ -362,7 +361,7 @@ test('test TS types of the input variable', async () => {
     useSetupAllTestHooks(ctx.proxy);
     const isFetching = useIsFetching();
 
-    const utils = proxy.useContext();
+    const utils = proxy.useUtils();
 
     ignoreErrors(() => {
       // @ts-expect-error from user.details should not see id from `posts.byid`

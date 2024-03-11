@@ -1,10 +1,11 @@
+import { EventEmitter } from 'events';
 import { routerToServerAndClientNew, waitError } from './___testHelpers';
 import { waitFor } from '@testing-library/react';
 import { TRPCClientError, wsLink } from '@trpc/client/src';
-import { inferProcedureParams, initTRPC } from '@trpc/server/src';
-import { Unsubscribable, observable } from '@trpc/server/src/observable';
-import { EventEmitter } from 'events';
-import { expectTypeOf } from 'expect-type';
+import type { inferProcedureParams } from '@trpc/server/src';
+import { initTRPC } from '@trpc/server/src';
+import type { Unsubscribable } from '@trpc/server/src/observable';
+import { observable } from '@trpc/server/src/observable';
 import { z } from 'zod';
 
 const t = initTRPC
@@ -32,7 +33,7 @@ test('old client - happy path w/o input', async () => {
 
   // @ts-expect-error cannot call new procedure with old client
   expect(await client.query('hello')).toBe('world');
-  close();
+  await close();
 });
 
 test('old client - happy path with input', async () => {
@@ -44,7 +45,7 @@ test('old client - happy path with input', async () => {
   const { client, close } = routerToServerAndClientNew(router);
   // @ts-expect-error cannot call new procedure with old client
   expect(await client.query('greeting', 'KATT')).toBe('hello KATT');
-  close();
+  await close();
 });
 
 test('very happy path', async () => {
@@ -65,7 +66,7 @@ test('very happy path', async () => {
     }>();
   }
   {
-    type TParams = inferProcedureParams<typeof router['greeting']>;
+    type TParams = inferProcedureParams<(typeof router)['greeting']>;
     type TConfig = TParams['_config'];
     type TContext = TConfig['$types']['ctx'];
     type TError = TConfig['$types']['errorShape'];
@@ -74,7 +75,7 @@ test('very happy path', async () => {
   }
   const { proxy, close } = routerToServerAndClientNew(router);
   expect(await proxy.greeting.query('KATT')).toBe('hello KATT');
-  close();
+  await close();
 });
 
 test('middleware', async () => {
@@ -98,7 +99,7 @@ test('middleware', async () => {
   });
   const { proxy, close } = routerToServerAndClientNew(router);
   expect(await proxy.greeting.query()).toBe('hello KATT');
-  close();
+  await close();
 });
 
 test('sad path', async () => {
@@ -112,7 +113,7 @@ test('sad path', async () => {
   expect(result).toMatchInlineSnapshot(
     `[TRPCClientError: No "query"-procedure on path "not.found"]`,
   );
-  close();
+  await close();
 });
 
 test('call a mutation as a query', async () => {
@@ -125,7 +126,7 @@ test('call a mutation as a query', async () => {
     `[TRPCClientError: No "mutation"-procedure on path "hello"]`,
   );
 
-  close();
+  await close();
 });
 
 test('flat router', async () => {
@@ -160,16 +161,18 @@ test('flat router', async () => {
 test('subscriptions', async () => {
   const ee = new EventEmitter();
 
-  const subscriptionMock = jest.fn();
-  const onStartedMock = jest.fn();
-  const onDataMock = jest.fn();
-  const onCompleteMock = jest.fn();
+  const subscriptionMock = vi.fn();
+  const onStartedMock = vi.fn();
+  const onDataMock = vi.fn();
+  const onCompleteMock = vi.fn();
 
   const router = t.router({
     onEvent: t.procedure.input(z.number()).subscription(({ input }) => {
       subscriptionMock(input);
       return observable<number>((emit) => {
-        const onData = (data: number) => emit.next(data + input);
+        const onData = (data: number) => {
+          emit.next(data + input);
+        };
         ee.on('data', onData);
         return () => {
           ee.off('data', onData);
@@ -194,16 +197,28 @@ test('subscriptions', async () => {
   });
 
   expectTypeOf(subscription).toMatchTypeOf<Unsubscribable>();
-  await waitFor(() => expect(onStartedMock).toBeCalledTimes(1));
-  await waitFor(() => expect(subscriptionMock).toBeCalledTimes(1));
-  await waitFor(() => expect(subscriptionMock).toHaveBeenNthCalledWith(1, 10));
+  await waitFor(() => {
+    expect(onStartedMock).toBeCalledTimes(1);
+  });
+  await waitFor(() => {
+    expect(subscriptionMock).toBeCalledTimes(1);
+  });
+  await waitFor(() => {
+    expect(subscriptionMock).toHaveBeenNthCalledWith(1, 10);
+  });
 
   ee.emit('data', 20);
-  await waitFor(() => expect(onDataMock).toBeCalledTimes(1));
-  await waitFor(() => expect(onDataMock).toHaveBeenNthCalledWith(1, 30));
+  await waitFor(() => {
+    expect(onDataMock).toBeCalledTimes(1);
+  });
+  await waitFor(() => {
+    expect(onDataMock).toHaveBeenNthCalledWith(1, 30);
+  });
 
   subscription.unsubscribe();
-  await waitFor(() => expect(onCompleteMock).toBeCalledTimes(1));
+  await waitFor(() => {
+    expect(onCompleteMock).toBeCalledTimes(1);
+  });
 
-  close();
+  await close();
 });

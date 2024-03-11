@@ -1,4 +1,27 @@
 // @ts-check
+/* eslint-disable @typescript-eslint/no-var-requires */
+
+const { parseEnv } = require('./src/utils/env');
+const { generateTypedocDocusaurusPlugins } = require('./docusaurus.typedoc.js');
+
+const env = parseEnv(process.env);
+
+const poweredByVercel = `
+  <div style="padding-top: 24px;">
+    <a
+      href="https://vercel.com/?utm_source=trpc&utm_campaign=oss"
+      target="_blank"
+      rel="noreferrer"
+    >
+      <img
+        src="/img/powered-by-vercel.svg"
+        alt="Powered by Vercel"
+        style="height: 40px;display:inline-block;box-shadow: 0px 0px 32px rgba(255, 255, 255, 0.2);"
+      />
+    </a>
+  </div>
+`.trim();
+
 /** @type {import('@docusaurus/types').Config} */
 module.exports = {
   title: 'tRPC',
@@ -14,7 +37,7 @@ module.exports = {
   themeConfig: {
     disableSwitch: false,
     respectPrefersColorScheme: true,
-    image: 'https://assets.trpc.io/www/trpc-open-graph.png',
+    image: `${env.OG_URL}/api/landing?cache-buster=${new Date().getDate()}`,
     prism: {
       theme: require('prism-react-renderer/themes/vsDark'),
     },
@@ -26,9 +49,9 @@ module.exports = {
       // searchParameters: {},
     },
     announcementBar: {
-      id: 'v10',
+      id: 'drift',
       content:
-        "🚀 You are looking at tRPC <strong>version 10</strong>! Read the <a href='/blog/announcing-trpc-10'>announcement post</a> or see the <a href='/docs/migrate-from-v9-to-v10'>migration guide</a> if you're currently using tRPC v9",
+        "🚀 We've just released a beta version of <strong>tRPC Drift</strong> which helps you keep track of changes in your tRPC API. Check it out at <a href='https://drift.trpc.io'><strong>drift.trpc.io</strong></a>.",
       backgroundColor: 'var(--ifm-color-primary-dark)',
       textColor: '#ffffff',
       isCloseable: true,
@@ -50,12 +73,12 @@ module.exports = {
           label: 'Quickstart',
         },
         {
-          to: 'docs/awesome-trpc',
+          to: 'docs/community/awesome-trpc',
           label: 'Awesome tRPC Collection',
         },
         {
-          to: 'docs/nextjs',
-          label: 'Usage with Next.js',
+          to: 'docs/client/nextjs',
+          label: 'Using Next.js',
         },
         {
           href: 'https://github.com/trpc/trpc',
@@ -93,7 +116,11 @@ module.exports = {
             },
             {
               label: 'Usage with Next.js',
-              to: 'docs/nextjs',
+              to: 'docs/client/nextjs',
+            },
+            {
+              label: 'FAQ / Troubleshooting',
+              to: 'docs/faq',
             },
           ],
         },
@@ -129,13 +156,25 @@ module.exports = {
               href: 'https://github.com/trpc/trpc/tree/main',
               className: 'flex items-center',
             },
+            {
+              label: '❤️ Sponsor tRPC',
+              href: 'https://trpc.io/sponsor',
+              className: 'flex items-center',
+            },
           ],
         },
       ],
-      // copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
+      copyright: poweredByVercel,
     },
   },
   plugins: [
+    // Sidebar order is decided by the position in the array below
+    ...generateTypedocDocusaurusPlugins([
+      'client',
+      'server',
+      'next',
+      'react-query',
+    ]),
     async function myPlugin() {
       return {
         name: 'docusaurus-tailwindcss',
@@ -185,15 +224,13 @@ module.exports = {
         blog: {
           showReadingTime: true,
           // Please change this to your repo.
-          editUrl: 'https://github.com/trpc/trpc/tree/main/www/blog/',
+          editUrl: 'https://github.com/trpc/trpc/tree/main/www/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
-        googleAnalytics: {
-          trackingID: 'UA-198119985-2',
-          // Optional fields.
-          anonymizeIP: true, // Should IPs be anonymized?
+        gtag: {
+          trackingID: 'G-7KLX2VFLVR',
         },
       },
     ],
@@ -202,7 +239,7 @@ module.exports = {
       {
         // Not sure how reliable this path is (it's relative from the preset package)?
         // None of the light themes had good support for `diff` mode, so had to patch my own theme
-        themes: ['../../../../../../www/min-light-with-diff', 'nord'],
+        themes: ['../../../../../../www/min-light-with-diff', 'github-dark'],
       },
     ],
   ],
@@ -217,4 +254,8 @@ module.exports = {
     require.resolve('./docusaurus.twitterReload.js'),
     require.resolve('./docusaurus.preferredTheme.js'),
   ],
+
+  customFields: {
+    env,
+  },
 };

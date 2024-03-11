@@ -1,14 +1,10 @@
-import { inferAsyncReturnType, initTRPC } from '@trpc/server';
-import {
-  CreateHTTPContextOptions,
-  createHTTPServer,
-} from '@trpc/server/adapters/standalone';
-import {
-  CreateWSSContextFnOptions,
-  applyWSSHandler,
-} from '@trpc/server/adapters/ws';
+import { initTRPC } from '@trpc/server';
+import type { CreateHTTPContextOptions } from '@trpc/server/adapters/standalone';
+import { createHTTPServer } from '@trpc/server/adapters/standalone';
+import type { CreateWSSContextFnOptions } from '@trpc/server/adapters/ws';
+import { applyWSSHandler } from '@trpc/server/adapters/ws';
 import { observable } from '@trpc/server/observable';
-import ws from 'ws';
+import { WebSocketServer } from 'ws';
 import { z } from 'zod';
 
 // This is how you initialize a context for the server
@@ -17,7 +13,7 @@ function createContext(
 ) {
   return {};
 }
-type Context = inferAsyncReturnType<typeof createContext>;
+type Context = Awaited<ReturnType<typeof createContext>>;
 
 const t = initTRPC.context<Context>().create();
 
@@ -78,7 +74,7 @@ const { server, listen } = createHTTPServer({
 });
 
 // ws server
-const wss = new ws.Server({ server });
+const wss = new WebSocketServer({ server });
 applyWSSHandler<AppRouter>({
   wss,
   router: appRouter,

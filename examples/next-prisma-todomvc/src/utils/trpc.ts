@@ -29,7 +29,6 @@ function getBaseUrl() {
  * @link https://trpc.io/docs/react#3-create-trpc-hooks
  */
 export const trpc = createTRPCNext<AppRouter>({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   config() {
     /**
      * If you want to use SSR, you need to use the server's full URL
@@ -41,7 +40,7 @@ export const trpc = createTRPCNext<AppRouter>({
        */
       transformer: superjson,
       /**
-       * @link https://trpc.io/docs/links
+       * @link https://trpc.io/docs/client/links
        */
       links: [
         // adds pretty logs to your console in development and logs errors in production
@@ -55,7 +54,7 @@ export const trpc = createTRPCNext<AppRouter>({
         }),
       ],
       /**
-       * @link https://react-query.tanstack.com/reference/QueryClient
+       * @link https://tanstack.com/query/v4/docs/react/reference/QueryClient
        */
       // queryClientConfig: { defaultOptions: { queries: { staleTime: 60 } } },
     };

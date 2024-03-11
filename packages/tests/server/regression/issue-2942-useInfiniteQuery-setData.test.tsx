@@ -1,12 +1,9 @@
 import { getServerAndReactClient } from '../react/__reactHelpers';
-import {
-  DehydratedState,
-  InfiniteData,
-  dehydrate,
-} from '@tanstack/react-query';
+import type { DehydratedState, InfiniteData } from '@tanstack/react-query';
+import { dehydrate } from '@tanstack/react-query';
 import { render, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { initTRPC } from '@trpc/server/src';
-import { expectTypeOf } from 'expect-type';
 import { konn } from 'konn';
 import React from 'react';
 import { z } from 'zod';
@@ -65,11 +62,11 @@ test('with input', async () => {
       return <>...</>;
     }
 
-    type TData = typeof query1['data'];
+    type TData = (typeof query1)['data'];
     expectTypeOf<TData>().toMatchTypeOf<
       InfiniteData<{
         items: typeof fixtureData;
-        next: number | undefined;
+        next?: number | undefined;
       }>
     >();
 
@@ -105,7 +102,8 @@ test('with input', async () => {
   const before: DehydratedState['queries'] = JSON.parse(
     JSON.stringify(dehydrate(ctx.queryClient).queries),
   );
-  utils.getByTestId('setInfinite').click();
+
+  await userEvent.click(utils.getByTestId('setInfinite'));
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   const after: DehydratedState['queries'] = JSON.parse(
@@ -144,11 +142,11 @@ test('w/o input', async () => {
       return <>...</>;
     }
 
-    type TData = typeof query1['data'];
+    type TData = (typeof query1)['data'];
     expectTypeOf<TData>().toMatchTypeOf<
       InfiniteData<{
         items: typeof fixtureData;
-        next: number | undefined;
+        next?: number | undefined;
       }>
     >();
 
@@ -178,7 +176,7 @@ test('w/o input', async () => {
   const before: DehydratedState['queries'] = JSON.parse(
     JSON.stringify(dehydrate(ctx.queryClient).queries),
   );
-  utils.getByTestId('setInfinite').click();
+  await userEvent.click(utils.getByTestId('setInfinite'));
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   const after: DehydratedState['queries'] = JSON.parse(

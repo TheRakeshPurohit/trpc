@@ -1,41 +1,46 @@
-import { mergeRoutersGeneric } from './internals/__generated__/mergeRoutersGeneric';
-import {
+import type {
   DefaultErrorShape,
   ErrorFormatter,
   ErrorFormatterShape,
-  defaultFormatter,
 } from '../error/formatter';
-import { createFlatProxy } from '../shared';
-import {
-  CombinedDataTransformer,
+import { defaultFormatter } from '../error/formatter';
+import { createFlatProxy } from '../shared/createProxy';
+import type {
   DataTransformerOptions,
   DefaultDataTransformer,
-  defaultTransformer,
-  getDataTransformer,
 } from '../transformer';
-import { FlatOverwrite } from '../types';
-import {
+import { defaultTransformer, getDataTransformer } from '../transformer';
+import type { Unwrap } from '../types';
+import type {
   CreateRootConfigTypes,
   RootConfig,
   RootConfigTypes,
   RuntimeConfig,
-  isServerDefault,
 } from './internals/config';
+import { isServerDefault } from './internals/config';
+import { mergeRouters } from './internals/mergeRouters';
 import { createBuilder } from './internals/procedureBuilder';
-import { PickFirstDefined, ValidateShape } from './internals/utils';
+import type {
+  Overwrite,
+  PickFirstDefined,
+  ValidateShape,
+} from './internals/utils';
 import { createMiddlewareFactory } from './middleware';
-import { createRouterFactory } from './router';
+import { createCallerFactory, createRouterFactory } from './router';
 
 type PartialRootConfigTypes = Partial<RootConfigTypes>;
 
 type CreateRootConfigTypesFromPartial<TTypes extends PartialRootConfigTypes> =
   CreateRootConfigTypes<{
-    ctx: TTypes['ctx'] extends RootConfigTypes['ctx'] ? TTypes['ctx'] : {};
-    meta: TTypes['meta'] extends RootConfigTypes['meta'] ? TTypes['meta'] : {};
+    ctx: TTypes['ctx'] extends RootConfigTypes['ctx'] ? TTypes['ctx'] : object;
+    meta: TTypes['meta'] extends RootConfigTypes['meta']
+      ? TTypes['meta']
+      : object;
     errorShape: TTypes['errorShape'];
     transformer: DataTransformerOptions;
   }>;
 
+type ContextCallback = (...args: any[]) => object | Promise<object>;
 /**
  * TODO: This can be improved:
  * - We should be able to chain `.meta()`/`.context()` only once
@@ -43,13 +48,28 @@ type CreateRootConfigTypesFromPartial<TTypes extends PartialRootConfigTypes> =
  * - Doesn't need to be a class but it doesn't really hurt either
  */
 
-class TRPCBuilder<TParams extends PartialRootConfigTypes = {}> {
-  context<TNewContext extends RootConfigTypes['ctx']>() {
-    return new TRPCBuilder<FlatOverwrite<TParams, { ctx: TNewContext }>>();
+class TRPCBuilder<TParams extends PartialRootConfigTypes = object> {
+  context<TNewContext extends object | ContextCallback>() {
+    type $Context = TNewContext extends ContextCallback
+      ? Unwrap<TNewContext>
+      : TNewContext;
+
+    type NextParams = Overwrite<
+      TParams,
+      {
+        ctx: $Context;
+      }
+    >;
+
+    return new TRPCBuilder<NextParams>();
   }
+
   meta<TNewMeta extends RootConfigTypes['meta']>() {
-    return new TRPCBuilder<FlatOverwrite<TParams, { meta: TNewMeta }>>();
+    type NextParams = Overwrite<TParams, { meta: TNewMeta }>;
+
+    return new TRPCBuilder<NextParams>();
   }
+
   create<
     TOptions extends Partial<
       RuntimeConfig<CreateRootConfigTypesFromPartial<TParams>>
@@ -67,7 +87,7 @@ class TRPCBuilder<TParams extends PartialRootConfigTypes = {}> {
 }
 
 /**
- * Initialize tRPC - be done exactly once per backend
+ * Initialize tRPC - done exactly once per backend
  */
 export const initTRPC = new TRPCBuilder();
 
@@ -86,9 +106,7 @@ function createTRPCInner<TParams extends PartialRootConfigTypes>() {
       ErrorFormatter<$Context, DefaultErrorShape>
     >;
     type $Transformer = TOptions['transformer'] extends DataTransformerOptions
-      ? TOptions['transformer'] extends DataTransformerOptions
-        ? CombinedDataTransformer
-        : DefaultDataTransformer
+      ? TOptions['transformer']
       : DefaultDataTransformer;
     type $ErrorShape = ErrorFormatterShape<$Formatter>;
 
@@ -139,20 +157,31 @@ function createTRPCInner<TParams extends PartialRootConfigTypes>() {
       _config: config,
       /**
        * Builder object for creating procedures
+       * @see https://trpc.io/docs/server/procedures
        */
-      procedure: createBuilder<$Config>(),
+      procedure: createBuilder<$Config>({
+        meta: runtime?.defaultMeta,
+      }),
       /**
        * Create reusable middlewares
+       * @see https://trpc.io/docs/server/middlewares
        */
       middleware: createMiddlewareFactory<$Config>(),
       /**
        * Create a router
+       * @see https://trpc.io/docs/server/routers
        */
       router: createRouterFactory<$Config>(config),
       /**
        * Merge Routers
+       * @see https://trpc.io/docs/server/merging-routers
        */
-      mergeRouters: mergeRoutersGeneric,
+      mergeRouters,
+      /**
+       * Create a server-side caller for a router
+       * @see https://trpc.io/docs/server/server-side-calls
+       */
+      createCallerFactory: createCallerFactory<$Config>(),
     };
   };
 }

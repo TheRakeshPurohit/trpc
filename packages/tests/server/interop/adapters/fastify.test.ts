@@ -1,22 +1,19 @@
+import { EventEmitter } from 'events';
 import ws from '@fastify/websocket';
 import { waitFor } from '@testing-library/react';
+import type { HTTPHeaders } from '@trpc/client/src';
 import {
-  HTTPHeaders,
   createTRPCClient,
   createWSClient,
   httpLink,
   splitLink,
   wsLink,
 } from '@trpc/client/src';
-import { inferAsyncReturnType, router } from '@trpc/server/src';
-import {
-  CreateFastifyContextOptions,
-  fastifyTRPCPlugin,
-} from '@trpc/server/src/adapters/fastify';
+import type { inferAsyncReturnType } from '@trpc/server/src';
+import { router } from '@trpc/server/src';
+import type { CreateFastifyContextOptions } from '@trpc/server/src/adapters/fastify';
+import { fastifyTRPCPlugin } from '@trpc/server/src/adapters/fastify';
 import { observable } from '@trpc/server/src/observable';
-import AbortController from 'abort-controller';
-import { EventEmitter } from 'events';
-import { expectTypeOf } from 'expect-type';
 import fastify from 'fastify';
 import fp from 'fastify-plugin';
 import fetch from 'node-fetch';
@@ -41,8 +38,8 @@ interface Message {
 
 function createAppRouter() {
   const ee = new EventEmitter();
-  const onNewMessageSubscription = jest.fn();
-  const onSubscriptionEnded = jest.fn();
+  const onNewMessageSubscription = vi.fn();
+  const onSubscriptionEnded = vi.fn();
   const appRouter = router<Context>()
     .query('ping', {
       resolve() {
@@ -131,12 +128,12 @@ function createServer(opts: ServerOptions) {
     return { hello: 'POST', body };
   });
 
-  const stop = () => {
-    instance.close();
+  const stop = async () => {
+    await instance.close();
   };
   const start = async () => {
     try {
-      await instance.listen(config.port);
+      await instance.listen({ port: config.port });
     } catch (err) {
       instance.log.error(err);
     }
@@ -162,7 +159,7 @@ function createClient(opts: ClientOptions = {}) {
         false: httpLink({
           url: `http://${host}`,
           headers: opts.headers,
-          AbortController: AbortController as any,
+          AbortController,
           fetch: fetch as any,
         }),
       }),
@@ -265,8 +262,8 @@ describe('anonymous user', () => {
       });
     });
 
-    const onStartedMock = jest.fn();
-    const onDataMock = jest.fn();
+    const onStartedMock = vi.fn();
+    const onDataMock = vi.fn();
     const sub = app.client.subscription('onMessage', undefined, {
       onStarted: onStartedMock,
       onData(data) {
@@ -377,7 +374,7 @@ describe('anonymous user with fastify-plugin', () => {
       },
       body: JSON.stringify(data),
     });
-    // body shoul be string
+    // body should be string
     expect(await req.json()).toMatchInlineSnapshot(`
       Object {
         "body": "{\\"text\\":\\"life\\",\\"life\\":42}",

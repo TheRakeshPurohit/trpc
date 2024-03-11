@@ -1,14 +1,11 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { legacyRouterToServerAndClient } from './__legacyRouterToServerAndClient';
 import { createTRPCClient, httpBatchLink } from '@trpc/client/src';
 import * as trpc from '@trpc/server/src';
-import { Dict } from '@trpc/server/src';
+import type { Dict } from '@trpc/server/src';
 
 describe('pass headers', () => {
   type Context = {
-    headers: Dict<string | string[]>;
+    headers: Dict<string[] | string>;
   };
   const { close, httpUrl } = legacyRouterToServerAndClient(
     trpc.router<Context>().query('hello', {
@@ -27,8 +24,8 @@ describe('pass headers', () => {
     },
   );
 
-  afterAll(() => {
-    close();
+  afterAll(async () => {
+    await close();
   });
 
   test('no headers', async () => {

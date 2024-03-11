@@ -1,6 +1,4 @@
 /* eslint-disable no-console */
-
-/* eslint-disable no-restricted-imports */
 import { appRouter as bigV10Router } from '../__generated__/bigBoi/_app';
 import { t } from '../__generated__/bigBoi/_trpc';
 import { bigRouter as bigV9Router } from '../__generated__/bigLegacyRouter/bigRouter';
@@ -10,7 +8,6 @@ import {
   httpBatchLink,
 } from '@trpc/client/src';
 import { createReactQueryHooks } from '@trpc/react-query/src';
-import { expectTypeOf } from 'expect-type';
 
 const legacyRouterInterop = bigV9Router.interop();
 
@@ -59,22 +56,22 @@ test('react', () => {
   try {
     const { data } = trpc.useQuery(['oldProc100']);
     if (!data) {
-      throw new Error('Whaever');
+      throw new Error('Whatever');
     }
     expectTypeOf(data).toEqualTypeOf<'100'>();
   } catch {
-    // whatev
+    // whatever
   }
 
   try {
     const { data } = trpc.proxy.r499.greeting.useQuery({ who: 'KATT' });
     if (!data) {
-      throw new Error('Whaever');
+      throw new Error('Whatever');
     }
     expectTypeOf(data).not.toBeAny();
     expectTypeOf(data).toMatchTypeOf<string>();
   } catch {
-    // whatev
+    // whatever
   }
   console.error = prevConsoleError;
 });

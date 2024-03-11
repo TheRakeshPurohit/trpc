@@ -1,13 +1,15 @@
 <p align="center">
-  <a href="https://trpc.io/"><img src="../../www/static/img/logo-text.svg" alt="tRPC" height="130"/></a>
+  <a href="https://trpc.io/"><img src="https://assets.trpc.io/icons/svgs/blue-bg-rounded.svg" alt="tRPC" height="75"/></a>
 </p>
+
+<h3 align="center">tRPC</h3>
 
 <p align="center">
   <strong>End-to-end typesafe APIs made easy</strong>
 </p>
 
 <p align="center">
-  <img src="https://assets.trpc.io/www/v10/preview-dark.gif" alt="Demo" />
+  <img src="https://assets.trpc.io/www/v10/v10-dark-landscape.gif" alt="Demo" />
 </p>
 
 # `@trpc/client`
@@ -29,6 +31,9 @@ yarn add @trpc/client
 
 # pnpm
 pnpm add @trpc/client
+
+# Bun
+bun add @trpc/client
 ```
 
 ## Basic Example
@@ -46,7 +51,6 @@ const trpc = createTRPCProxyClient<AppRouter>({
     }),
   ],
 });
-
 
 async function main() {
   // Querying the greeting

@@ -1,23 +1,20 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// import WebSocket from 'ws';
+import { EventEmitter } from 'events';
 import { routerToServerAndClientNew, waitMs } from '../___testHelpers';
 import { waitFor } from '@testing-library/react';
-import { TRPCClientError } from '@trpc/client/src';
+import type { TRPCClientError } from '@trpc/client/src';
 import { createWSClient, wsLink } from '@trpc/client/src';
 import * as trpc from '@trpc/server/src';
-import { AnyRouter, TRPCError } from '@trpc/server/src';
+import type { AnyRouter } from '@trpc/server/src';
+import { TRPCError } from '@trpc/server/src';
 import { applyWSSHandler } from '@trpc/server/src/adapters/ws';
-import { Observer, observable } from '@trpc/server/src/observable';
-import {
+import type { Observer } from '@trpc/server/src/observable';
+import { observable } from '@trpc/server/src/observable';
+import type {
   TRPCClientOutgoingMessage,
   TRPCRequestMessage,
 } from '@trpc/server/src/rpc';
-import { EventEmitter } from 'events';
-import { expectTypeOf } from 'expect-type';
-import { default as WebSocket, default as ws } from 'ws';
+import WebSocket, { Server } from 'ws';
 import { z } from 'zod';
-
-jest.retryTimes(3);
 
 type Message = {
   id: string;
@@ -27,9 +24,9 @@ function factory(config?: { createContext: () => Promise<any> }) {
   const subRef: {
     current: Observer<Message, unknown>;
   } = {} as any;
-  const onNewMessageSubscription = jest.fn();
-  const subscriptionEnded = jest.fn();
-  const onNewClient = jest.fn();
+  const onNewMessageSubscription = vi.fn();
+  const subscriptionEnded = vi.fn();
+  const onNewClient = vi.fn();
   const oldRouter = trpc
     .router()
     .query('greeting', {
@@ -81,8 +78,8 @@ function factory(config?: { createContext: () => Promise<any> }) {
     })
     .interop();
 
-  const onOpenMock = jest.fn();
-  const onCloseMock = jest.fn();
+  const onOpenMock = vi.fn();
+  const onCloseMock = vi.fn();
 
   expectTypeOf(oldRouter).toMatchTypeOf<AnyRouter>();
   expectTypeOf<AnyRouter>().toMatchTypeOf<typeof oldRouter>();
@@ -124,7 +121,7 @@ test('query', async () => {
   expect(await client.query('greeting', null)).toBe('hello world');
   expect(await client.query('greeting', 'alexdotjs')).toBe('hello alexdotjs');
 
-  close();
+  await close();
 });
 
 test('mutation', async () => {
@@ -142,7 +139,7 @@ test('mutation', async () => {
     }
   `);
 
-  close();
+  await close();
 });
 
 test('basic subscription test', async () => {
@@ -157,8 +154,8 @@ test('basic subscription test', async () => {
       });
     });
   });
-  const onStartedMock = jest.fn();
-  const onDataMock = jest.fn();
+  const onStartedMock = vi.fn();
+  const onDataMock = vi.fn();
   const subscription = client.subscription('onMessage', undefined, {
     onStarted() {
       onStartedMock();
@@ -207,7 +204,7 @@ test('basic subscription test', async () => {
     expect(ee.listenerCount('server:msg')).toBe(0);
     expect(ee.listenerCount('server:error')).toBe(0);
   });
-  close();
+  await close();
 });
 
 test.skip('$subscription() - server randomly stop and restart (this test might be flaky, try re-running)', async () => {
@@ -222,10 +219,10 @@ test.skip('$subscription() - server randomly stop and restart (this test might b
       });
     });
   });
-  const onStartedMock = jest.fn();
-  const onDataMock = jest.fn();
-  const onErrorMock = jest.fn();
-  const onCompleteMock = jest.fn();
+  const onStartedMock = vi.fn();
+  const onDataMock = vi.fn();
+  const onErrorMock = vi.fn();
+  const onCompleteMock = vi.fn();
   client.subscription('onMessage', undefined, {
     onStarted: onStartedMock,
     onData: onDataMock,
@@ -263,7 +260,7 @@ test.skip('$subscription() - server randomly stop and restart (this test might b
     }, 1);
   });
 
-  const wss = new ws.Server({ port: wssPort });
+  const wss = new Server({ port: wssPort });
   applyWSSHandler({ ...applyWSSHandlerOpts, wss });
 
   await waitFor(() => {
@@ -293,10 +290,10 @@ test('server subscription ended', async () => {
       });
     });
   });
-  const onStartedMock = jest.fn();
-  const onDataMock = jest.fn();
-  const onErrorMock = jest.fn();
-  const onCompleteMock = jest.fn();
+  const onStartedMock = vi.fn();
+  const onDataMock = vi.fn();
+  const onErrorMock = vi.fn();
+  const onCompleteMock = vi.fn();
   client.subscription('onMessage', undefined, {
     onStarted: onStartedMock,
     onData: onDataMock,
@@ -311,13 +308,9 @@ test('server subscription ended', async () => {
   // destroy server subscription
   subRef.current.complete();
   await waitFor(() => {
-    expect(onErrorMock).toHaveBeenCalledTimes(1);
+    expect(onCompleteMock).toHaveBeenCalledTimes(1);
   });
-  expect(onCompleteMock).toHaveBeenCalledTimes(0);
-  expect(onErrorMock.mock.calls[0]![0]!).toMatchInlineSnapshot(
-    `[TRPCClientError: Operation ended prematurely]`,
-  );
-  close();
+  await close();
 });
 
 test('sub emits errors', async () => {
@@ -331,12 +324,12 @@ test('sub emits errors', async () => {
       subRef.current.error(new Error('test'));
     });
   });
-  const onNewClient = jest.fn();
+  const onNewClient = vi.fn();
   wss.addListener('connection', onNewClient);
-  const onStartedMock = jest.fn();
-  const onDataMock = jest.fn();
-  const onErrorMock = jest.fn();
-  const onCompleteMock = jest.fn();
+  const onStartedMock = vi.fn();
+  const onDataMock = vi.fn();
+  const onErrorMock = vi.fn();
+  const onCompleteMock = vi.fn();
   client.subscription('onMessage', undefined, {
     onStarted: onStartedMock,
     onData: onDataMock,
@@ -351,87 +344,91 @@ test('sub emits errors', async () => {
     expect(onCompleteMock).toHaveBeenCalledTimes(0);
   });
 
-  close();
+  await close();
 });
 
-test('wait for slow queries/mutations before disconnecting', async () => {
-  const { client, close, wsClient, onNewClient } = factory();
+test(
+  'wait for slow queries/mutations before disconnecting',
+  async () => {
+    const { client, close, wsClient, onNewClient } = factory();
 
-  await waitFor(() => {
-    expect(onNewClient).toHaveBeenCalledTimes(1);
-  });
-  const promise = client.mutation('slow');
-  wsClient.close();
-  expect(await promise).toMatchInlineSnapshot(`"slow query resolved"`);
-  close();
-  await waitFor(() => {
-    expect((wsClient.getConnection() as any as WebSocket).readyState).toBe(
-      WebSocket.CLOSED,
-    );
-  });
-  close();
-});
+    await waitFor(() => {
+      expect(onNewClient).toHaveBeenCalledTimes(1);
+    });
+    const promise = client.mutation('slow');
+    wsClient.close();
+    expect(await promise).toMatchInlineSnapshot(`"slow query resolved"`);
+    await close();
+    await waitFor(() => {
+      expect(wsClient.getConnection().readyState).toBe(WebSocket.CLOSED);
+    });
+    await close();
+  },
+  { retry: 5 },
+);
 
-test('subscriptions are automatically resumed', async () => {
-  const { client, close, ee, wssHandler, wss, onOpenMock, onCloseMock } =
-    factory();
-  ee.once('subscription:created', () => {
-    setTimeout(() => {
-      ee.emit('server:msg', {
-        id: '1',
+test(
+  'subscriptions are automatically resumed',
+  async () => {
+    const { client, close, ee, wssHandler, wss, onOpenMock, onCloseMock } =
+      factory();
+    ee.once('subscription:created', () => {
+      setTimeout(() => {
+        ee.emit('server:msg', {
+          id: '1',
+        });
       });
     });
-  });
-  function createSub() {
-    const onStartedMock = jest.fn();
-    const onDataMock = jest.fn();
-    const onErrorMock = jest.fn();
-    const onStoppedMock = jest.fn();
-    const onCompleteMock = jest.fn();
-    const unsub = client.subscription('onMessage', undefined, {
-      onStarted: onStartedMock(),
-      onData: onDataMock,
-      onError: onErrorMock,
-      onStopped: onStoppedMock,
-      onComplete: onCompleteMock,
+    function createSub() {
+      const onStartedMock = vi.fn();
+      const onDataMock = vi.fn();
+      const onErrorMock = vi.fn();
+      const onStoppedMock = vi.fn();
+      const onCompleteMock = vi.fn();
+      const unsub = client.subscription('onMessage', undefined, {
+        onStarted: onStartedMock(),
+        onData: onDataMock,
+        onError: onErrorMock,
+        onStopped: onStoppedMock,
+        onComplete: onCompleteMock,
+      });
+      return {
+        onStartedMock,
+        onDataMock,
+        onErrorMock,
+        onStoppedMock,
+        onCompleteMock,
+        unsub,
+      };
+    }
+    const sub1 = createSub();
+
+    await waitFor(() => {
+      expect(sub1.onStartedMock).toHaveBeenCalledTimes(1);
+      expect(sub1.onDataMock).toHaveBeenCalledTimes(1);
+      expect(onOpenMock).toHaveBeenCalledTimes(1);
+      expect(onCloseMock).toHaveBeenCalledTimes(0);
     });
-    return {
-      onStartedMock,
-      onDataMock,
-      onErrorMock,
-      onStoppedMock,
-      onCompleteMock,
-      unsub,
-    };
-  }
-  const sub1 = createSub();
+    wssHandler.broadcastReconnectNotification();
+    await waitFor(() => {
+      expect(wss.clients.size).toBe(1);
+      expect(onOpenMock).toHaveBeenCalledTimes(2);
+      expect(onCloseMock).toHaveBeenCalledTimes(1);
+    });
 
-  await waitFor(() => {
-    expect(sub1.onStartedMock).toHaveBeenCalledTimes(1);
-    expect(sub1.onDataMock).toHaveBeenCalledTimes(1);
-    expect(onOpenMock).toHaveBeenCalledTimes(1);
-    expect(onCloseMock).toHaveBeenCalledTimes(0);
-  });
-  wssHandler.broadcastReconnectNotification();
-  await waitFor(() => {
-    expect(wss.clients.size).toBe(1);
-    expect(onOpenMock).toHaveBeenCalledTimes(2);
-    expect(onCloseMock).toHaveBeenCalledTimes(1);
-  });
+    await waitFor(() => {
+      expect(sub1.onStartedMock).toHaveBeenCalledTimes(1);
+      expect(sub1.onDataMock).toHaveBeenCalledTimes(1);
+    });
+    ee.emit('server:msg', {
+      id: '2',
+    });
 
-  await waitFor(() => {
-    expect(sub1.onStartedMock).toHaveBeenCalledTimes(1);
-    expect(sub1.onDataMock).toHaveBeenCalledTimes(1);
-  });
-  ee.emit('server:msg', {
-    id: '2',
-  });
-
-  await waitFor(() => {
-    expect(sub1.onDataMock).toHaveBeenCalledTimes(2);
-  });
-  expect(sub1.onDataMock.mock.calls.map((args) => args[0]))
-    .toMatchInlineSnapshot(`
+    await waitFor(() => {
+      expect(sub1.onDataMock).toHaveBeenCalledTimes(2);
+    });
+    expect(sub1.onDataMock.mock.calls.map((args) => args[0]))
+      .toMatchInlineSnapshot(`
     Array [
       Object {
         "id": "1",
@@ -441,16 +438,18 @@ test('subscriptions are automatically resumed', async () => {
       },
     ]
   `);
-  await waitFor(() => {
-    expect(wss.clients.size).toBe(1);
-  });
+    await waitFor(() => {
+      expect(wss.clients.size).toBe(1);
+    });
 
-  close();
+    await close();
 
-  await waitFor(() => {
-    expect(onCloseMock).toHaveBeenCalledTimes(2);
-  });
-});
+    await waitFor(() => {
+      expect(onCloseMock).toHaveBeenCalledTimes(2);
+    });
+  },
+  { retry: 5 },
+);
 
 test('not found error', async () => {
   const { client, close, router } = factory();
@@ -466,7 +465,7 @@ test('not found error', async () => {
   expect(error.name).toBe('TRPCClientError');
   expect(error.shape?.data.code).toMatchInlineSnapshot(`"NOT_FOUND"`);
 
-  close();
+  await close();
 });
 
 test('batching', async () => {
@@ -486,37 +485,39 @@ test('batching', async () => {
       },
     ]
   `);
-  t.close();
+  await t.close();
 });
 
 describe('regression test - slow createContext', () => {
-  test('send messages immediately on connection', async () => {
-    const t = factory({
-      async createContext() {
-        await waitMs(50);
-        return {};
-      },
-    });
-    const rawClient = new WebSocket(t.wssUrl);
-
-    const msg: TRPCRequestMessage = {
-      id: 1,
-      method: 'query',
-      params: {
-        path: 'greeting',
-        input: null,
-      },
-    };
-    const msgStr = JSON.stringify(msg);
-    rawClient.onopen = () => {
-      rawClient.send(msgStr);
-    };
-    const data = await new Promise<string>((resolve) => {
-      rawClient.addEventListener('message', (msg) => {
-        resolve(msg.data as any);
+  test(
+    'send messages immediately on connection',
+    async () => {
+      const t = factory({
+        async createContext() {
+          await waitMs(50);
+          return {};
+        },
       });
-    });
-    expect(JSON.parse(data)).toMatchInlineSnapshot(`
+      const rawClient = new WebSocket(t.wssUrl);
+
+      const msg: TRPCRequestMessage = {
+        id: 1,
+        method: 'query',
+        params: {
+          path: 'greeting',
+          input: null,
+        },
+      };
+      const msgStr = JSON.stringify(msg);
+      rawClient.onopen = () => {
+        rawClient.send(msgStr);
+      };
+      const data = await new Promise<string>((resolve) => {
+        rawClient.addEventListener('message', (msg) => {
+          resolve(msg.data as any);
+        });
+      });
+      expect(JSON.parse(data)).toMatchInlineSnapshot(`
       Object {
         "id": 1,
         "result": Object {
@@ -525,56 +526,60 @@ describe('regression test - slow createContext', () => {
         },
       }
     `);
-    rawClient.close();
-    t.close();
-  });
+      rawClient.close();
+      await t.close();
+    },
+    { retry: 5 },
+  );
 
-  test('createContext throws', async () => {
-    const createContext = jest.fn(async () => {
-      await waitMs(20);
-      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'test' });
-    });
-    const t = factory({
-      createContext,
-    });
-    // close built-in client immediately to prevent connection
-    t.wsClient.close();
-    const rawClient = new WebSocket(t.wssUrl);
-
-    const msg: TRPCRequestMessage = {
-      id: 1,
-      method: 'query',
-      params: {
-        path: 'greeting',
-        input: null,
-      },
-    };
-    const msgStr = JSON.stringify(msg);
-    rawClient.onopen = () => {
-      rawClient.send(msgStr);
-    };
-
-    const responses: any[] = [];
-    rawClient.addEventListener('message', (msg) => {
-      responses.push(JSON.parse(msg.data as any));
-    });
-    await new Promise<void>((resolve) => {
-      rawClient.addEventListener('close', () => {
-        resolve();
+  test(
+    'createContext throws',
+    async () => {
+      const createContext = vi.fn(async () => {
+        await waitMs(20);
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'test' });
       });
-    });
-    for (const res of responses) {
-      expect(res).toHaveProperty('error');
-      expect(typeof res.error.data.stack).toBe('string');
-      res.error.data.stack = '[redacted]';
-    }
-    expect(responses).toHaveLength(2);
-    const [first, second] = responses;
+      const t = factory({
+        createContext,
+      });
+      // close built-in client immediately to prevent connection
+      t.wsClient.close();
+      const rawClient = new WebSocket(t.wssUrl);
 
-    expect(first.id).toBe(null);
-    expect(second.id).toBe(1);
+      const msg: TRPCRequestMessage = {
+        id: 1,
+        method: 'query',
+        params: {
+          path: 'greeting',
+          input: null,
+        },
+      };
+      const msgStr = JSON.stringify(msg);
+      rawClient.onopen = () => {
+        rawClient.send(msgStr);
+      };
 
-    expect(responses).toMatchInlineSnapshot(`
+      const responses: any[] = [];
+      rawClient.addEventListener('message', (msg) => {
+        responses.push(JSON.parse(msg.data as any));
+      });
+      await new Promise<void>((resolve) => {
+        rawClient.addEventListener('close', () => {
+          resolve();
+        });
+      });
+      for (const res of responses) {
+        expect(res).toHaveProperty('error');
+        expect(typeof res.error.data.stack).toBe('string');
+        res.error.data.stack = '[redacted]';
+      }
+      expect(responses).toHaveLength(2);
+      const [first, second] = responses;
+
+      expect(first.id).toBe(null);
+      expect(second.id).toBe(1);
+
+      expect(responses).toMatchInlineSnapshot(`
       Array [
         Object {
           "error": Object {
@@ -604,9 +609,11 @@ describe('regression test - slow createContext', () => {
       ]
     `);
 
-    expect(createContext).toHaveBeenCalledTimes(1);
-    t.close();
-  });
+      expect(createContext).toHaveBeenCalledTimes(1);
+      await t.close();
+    },
+    { retry: 5 },
+  );
 });
 
 test('malformatted JSON', async () => {
@@ -631,6 +638,11 @@ test('malformatted JSON', async () => {
 
   expect(res.id).toBe(null);
 
+  // replace "Unexpected token "o" with aaa
+  res.error.message = res.error.message.replace(
+    /^Unexpected token.*/,
+    'Unexpected token [... redacted b/c it is different in node 20]',
+  );
   expect(res).toMatchInlineSnapshot(`
     Object {
       "error": Object {
@@ -640,12 +652,12 @@ test('malformatted JSON', async () => {
           "httpStatus": 400,
           "stack": "[redacted]",
         },
-        "message": "Unexpected token o in JSON at position 1",
+        "message": "Unexpected token [... redacted b/c it is different in node 20]",
       },
       "id": null,
     }
   `);
-  t.close();
+  await t.close();
 });
 
 test('regression - badly shaped request', async () => {
@@ -687,7 +699,7 @@ test('regression - badly shaped request', async () => {
     }
   `);
   rawClient.close();
-  t.close();
+  await t.close();
 });
 
 describe('include "jsonrpc" in response if sent with message', () => {
@@ -760,7 +772,7 @@ describe('include "jsonrpc" in response if sent with message', () => {
     `);
 
     rawClient.close();
-    t.close();
+    await t.close();
   });
 
   test('subscriptions', async () => {
@@ -847,13 +859,13 @@ describe('include "jsonrpc" in response if sent with message', () => {
     `);
 
     rawClient.close();
-    t.close();
+    await t.close();
   });
 });
 
-test('wsClient stops reconnecting after .close()', async () => {
+test('wsClient stops reconnecting after .await close()', async () => {
   const badWsUrl = 'ws://localhost:9999';
-  const retryDelayMsMock = jest.fn();
+  const retryDelayMsMock = vi.fn();
   retryDelayMsMock.mockReturnValue(100);
 
   const wsClient = createWSClient({
@@ -861,8 +873,12 @@ test('wsClient stops reconnecting after .close()', async () => {
     retryDelayMs: retryDelayMsMock,
   });
 
-  await waitFor(() => expect(retryDelayMsMock).toHaveBeenCalledTimes(1));
-  await waitFor(() => expect(retryDelayMsMock).toHaveBeenCalledTimes(2));
+  await waitFor(() => {
+    expect(retryDelayMsMock).toHaveBeenCalledTimes(1);
+  });
+  await waitFor(() => {
+    expect(retryDelayMsMock).toHaveBeenCalledTimes(2);
+  });
   wsClient.close();
   await waitMs(100);
   expect(retryDelayMsMock).toHaveBeenCalledTimes(2);

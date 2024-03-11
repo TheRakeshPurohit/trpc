@@ -1,13 +1,11 @@
 import { getServerAndReactClient } from './__reactHelpers';
 import { render, waitFor } from '@testing-library/react';
-import { TRPCClientError, TRPCClientErrorLike } from '@trpc/client/src';
+import type { TRPCClientErrorLike } from '@trpc/client/src';
+import { TRPCClientError } from '@trpc/client/src';
 import { initTRPC } from '@trpc/server/src';
-import { expectTypeOf } from 'expect-type';
 import { konn } from 'konn';
 import React from 'react';
-import { ZodError, z } from 'zod';
-
-jest.retryTimes(3);
+import { z, ZodError } from 'zod';
 
 describe('custom error formatter', () => {
   const ctx = konn()
@@ -48,16 +46,14 @@ describe('custom error formatter', () => {
 
   test('query that fails', async () => {
     const { proxy, App, appRouter } = ctx;
-    const queryErrorCallback = jest.fn();
+    const queryErrorCallback = vi.fn();
     function MyComponent() {
       const query1 = proxy.post.byId.useQuery({
         id: 0,
       });
 
       if (query1.error) {
-        expectTypeOf(query1.error['data']?.foo).toMatchTypeOf<
-          'bar' | undefined
-        >();
+        expectTypeOf(query1.error.data?.foo).toMatchTypeOf<'bar' | undefined>();
         expectTypeOf(query1.error).toMatchTypeOf<
           TRPCClientErrorLike<typeof appRouter>
         >();
@@ -85,7 +81,7 @@ describe('custom error formatter', () => {
       expect(queryErrorCallback).toHaveBeenCalled();
     });
 
-    const errorDataResult = queryErrorCallback.mock.calls[0][0];
+    const errorDataResult = queryErrorCallback.mock.calls[0]![0]!;
 
     expect(errorDataResult).toBeInstanceOf(TRPCClientError);
     expect(errorDataResult).toMatchInlineSnapshot(`
@@ -95,6 +91,7 @@ describe('custom error formatter', () => {
           "minimum": 1,
           "type": "number",
           "inclusive": true,
+          "exact": false,
           "message": "Number must be greater than or equal to 1",
           "path": [
             "id"
@@ -133,7 +130,7 @@ describe('no custom formatter', () => {
 
   test('query that fails', async () => {
     const { proxy, App, appRouter } = ctx;
-    const queryErrorCallback = jest.fn();
+    const queryErrorCallback = vi.fn();
     function MyComponent() {
       const query1 = proxy.post.byId.useQuery({
         id: 0,
@@ -167,7 +164,7 @@ describe('no custom formatter', () => {
       expect(queryErrorCallback).toHaveBeenCalled();
     });
 
-    const errorDataResult = queryErrorCallback.mock.calls[0][0];
+    const errorDataResult = queryErrorCallback.mock.calls[0]![0]!;
 
     expect(errorDataResult).toBeInstanceOf(TRPCClientError);
     expect(errorDataResult).toMatchInlineSnapshot(`
@@ -177,6 +174,7 @@ describe('no custom formatter', () => {
           "minimum": 1,
           "type": "number",
           "inclusive": true,
+          "exact": false,
           "message": "Number must be greater than or equal to 1",
           "path": [
             "id"
@@ -205,7 +203,9 @@ test('types', async () => {
   });
 
   type TRouterError = TRPCClientErrorLike<typeof appRouter>;
-  type TProcedureError = TRPCClientErrorLike<typeof appRouter['post']['byId']>;
+  type TProcedureError = TRPCClientErrorLike<
+    (typeof appRouter)['post']['byId']
+  >;
 
   type TRouterError__data = TRouterError['data'];
   //      ^?

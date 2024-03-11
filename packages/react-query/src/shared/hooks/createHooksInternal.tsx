@@ -1,227 +1,65 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+import type { DehydratedState } from '@tanstack/react-query';
 import {
-  DehydratedState,
-  InfiniteQueryObserverSuccessResult,
-  QueryClient,
-  QueryObserverSuccessResult,
-  UseInfiniteQueryOptions,
-  UseInfiniteQueryResult,
-  UseMutationOptions,
-  UseMutationResult,
-  UseQueryOptions,
-  UseQueryResult,
   useInfiniteQuery as __useInfiniteQuery,
   useMutation as __useMutation,
+  useQueries as __useQueries,
   useQuery as __useQuery,
   hashQueryKey,
   useQueryClient,
 } from '@tanstack/react-query';
-import {
-  CreateTRPCClientOptions,
-  TRPCClient,
-  TRPCClientErrorLike,
-  TRPCRequestOptions,
-  createTRPCClient,
-} from '@trpc/client';
-import type {
-  AnyRouter,
-  ProcedureRecord,
-  inferHandlerInput,
-  inferProcedureClientError,
-  inferProcedureInput,
-  inferProcedureOutput,
-  inferSubscriptionOutput,
-} from '@trpc/server';
-import { inferObservableValue } from '@trpc/server/observable';
+import type { TRPCClientErrorLike } from '@trpc/client';
+import { createTRPCClient } from '@trpc/client';
+import type { AnyRouter } from '@trpc/server';
+import type { Observable } from '@trpc/server/observable';
 import React, {
-  ReactNode,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import {
-  SSRState,
-  TRPCContext,
-  TRPCContextProps,
-  TRPCContextState,
-} from '../../internals/context';
-import { QueryType, getArrayQueryKey } from '../../internals/getArrayQueryKey';
-import { CreateTRPCReactOptions, UseMutationOverride } from '../types';
-
-export type OutputWithCursor<TData, TCursor = any> = {
-  cursor: TCursor | null;
-  data: TData;
-};
-
-export interface TRPCReactRequestOptions
-  // For RQ, we use their internal AbortSignals instead of letting the user pass their own
-  extends Omit<TRPCRequestOptions, 'signal'> {
-  /**
-   * Opt out of SSR for this query by passing `ssr: false`
-   */
-  ssr?: boolean;
-  /**
-   * Opt out or into aborting request on unmount
-   */
-  abortOnUnmount?: boolean;
-}
-
-export interface TRPCUseQueryBaseOptions {
-  /**
-   * tRPC-related options
-   */
-  trpc?: TRPCReactRequestOptions;
-}
-
-export type { TRPCContext, TRPCContextState } from '../../internals/context';
-
-export interface UseTRPCQueryOptions<TPath, TInput, TOutput, TData, TError>
-  extends UseQueryOptions<TOutput, TError, TData, [TPath, TInput]>,
-    TRPCUseQueryBaseOptions {}
-
-export interface UseTRPCInfiniteQueryOptions<TPath, TInput, TOutput, TError>
-  extends UseInfiniteQueryOptions<
-      TOutput,
-      TError,
-      TOutput,
-      TOutput,
-      [TPath, TInput]
-    >,
-    TRPCUseQueryBaseOptions {}
-
-export interface UseTRPCMutationOptions<
-  TInput,
-  TError,
-  TOutput,
-  TContext = unknown,
-> extends UseMutationOptions<TOutput, TError, TInput, TContext>,
-    TRPCUseQueryBaseOptions {}
-
-export interface UseTRPCSubscriptionOptions<TOutput, TError> {
-  enabled?: boolean;
-  onStarted?: () => void;
-  onData: (data: TOutput) => void;
-  onError?: (err: TError) => void;
-}
-
-function getClientArgs<TPathAndInput extends unknown[], TOptions>(
-  pathAndInput: TPathAndInput,
-  opts: TOptions,
-) {
-  const [path, input] = pathAndInput;
-  return [path, input, (opts as any)?.trpc] as const;
-}
-
-type inferInfiniteQueryNames<TObj extends ProcedureRecord> = {
-  [TPath in keyof TObj]: inferProcedureInput<TObj[TPath]> extends {
-    cursor?: any;
-  }
-    ? TPath
-    : never;
-}[keyof TObj];
-
-type inferProcedures<TObj extends ProcedureRecord> = {
-  [TPath in keyof TObj]: {
-    input: inferProcedureInput<TObj[TPath]>;
-    output: inferProcedureOutput<TObj[TPath]>;
-  };
-};
-
-export interface TRPCProviderProps<TRouter extends AnyRouter, TSSRContext>
-  extends TRPCContextProps<TRouter, TSSRContext> {
-  children: ReactNode;
-}
-
-export type TRPCProvider<TRouter extends AnyRouter, TSSRContext> = (
-  props: TRPCProviderProps<TRouter, TSSRContext>,
-) => JSX.Element;
-
-export type UseDehydratedState<TRouter extends AnyRouter> = (
-  client: TRPCClient<TRouter>,
-  trpcState: DehydratedState | undefined,
-) => DehydratedState | undefined;
-
-export type CreateClient<TRouter extends AnyRouter> = (
-  opts: CreateTRPCClientOptions<TRouter>,
-) => TRPCClient<TRouter>;
-
-interface TRPCHookResult {
-  trpc: {
-    path: string;
-  };
-}
+import type { SSRState, TRPCContextState } from '../../internals/context';
+import { TRPCContext } from '../../internals/context';
+import type { QueryType } from '../../internals/getArrayQueryKey';
+import { getArrayQueryKey } from '../../internals/getArrayQueryKey';
+import { getClientArgs } from '../../internals/getClientArgs';
+import { useHookResult } from '../../internals/useHookResult';
+import type { TRPCUseQueries } from '../../internals/useQueries';
+import { createUseQueriesProxy } from '../proxy/useQueriesProxy';
+import type { CreateTRPCReactOptions, UseMutationOverride } from '../types';
+import type {
+  CreateClient,
+  TRPCProvider,
+  TRPCQueryOptions,
+  UseDehydratedState,
+  UseTRPCInfiniteQueryOptions,
+  UseTRPCInfiniteQueryResult,
+  UseTRPCMutationOptions,
+  UseTRPCMutationResult,
+  UseTRPCQueryOptions,
+  UseTRPCQueryResult,
+  UseTRPCSubscriptionOptions,
+} from './types';
 
 /**
  * @internal
  */
-export type UseTRPCQueryResult<TData, TError> = UseQueryResult<TData, TError> &
-  TRPCHookResult;
-
-/**
- * @internal
- */
-export type UseTRPCQuerySuccessResult<TData, TError> =
-  QueryObserverSuccessResult<TData, TError> & TRPCHookResult;
-/**
- * @internal
- */
-export type UseTRPCInfiniteQueryResult<TData, TError> = UseInfiniteQueryResult<
-  TData,
-  TError
-> &
-  TRPCHookResult;
-
-/**
- * @internal
- */
-export type UseTRPCInfiniteQuerySuccessResult<TData, TError> =
-  InfiniteQueryObserverSuccessResult<TData, TError> & TRPCHookResult;
-
-/**
- * @internal
- */
-export type UseTRPCMutationResult<TData, TError, TVariables, TContext> =
-  UseMutationResult<TData, TError, TVariables, TContext> & TRPCHookResult;
-
-/**
- * Makes a stable reference of the `trpc` prop
- */
-function useHookResult(value: TRPCHookResult['trpc']): TRPCHookResult['trpc'] {
-  const ref = useRef(value);
-  ref.current.path = value.path;
-  return ref.current;
-}
-/**
- * Create strongly typed react hooks
- * @internal
- */
-export function createHooksInternal<
+export function createRootHooks<
   TRouter extends AnyRouter,
   TSSRContext = unknown,
 >(config?: CreateTRPCReactOptions<TRouter>) {
   const mutationSuccessOverride: UseMutationOverride['onSuccess'] =
-    config?.unstable_overrides?.useMutation?.onSuccess ??
+    (config?.overrides ?? config?.unstable_overrides)?.useMutation?.onSuccess ??
     ((options) => options.originalFn());
 
-  type TQueries = TRouter['_def']['queries'];
-  type TSubscriptions = TRouter['_def']['subscriptions'];
-  type TMutations = TRouter['_def']['mutations'];
-
   type TError = TRPCClientErrorLike<TRouter>;
-  type TInfiniteQueryNames = inferInfiniteQueryNames<TQueries>;
-
-  type TQueryValues = inferProcedures<TQueries>;
-  type TMutationValues = inferProcedures<TMutations>;
 
   type ProviderContext = TRPCContextState<TRouter, TSSRContext>;
 
   const Context = (config?.context ??
     TRPCContext) as React.Context<ProviderContext>;
-  const ReactQueryContext = config?.reactQueryContext as React.Context<
-    QueryClient | undefined
-  >;
+  const ReactQueryContext = config?.reactQueryContext;
 
   const createClient: CreateClient<TRouter> = (opts) => {
     return createTRPCClient(opts);
@@ -241,88 +79,118 @@ export function createHooksInternal<
           abortOnUnmount,
           queryClient,
           client,
-          ssrContext: ssrContext || null,
+          ssrContext: ssrContext ?? null,
           ssrState,
           fetchQuery: useCallback(
             (pathAndInput, opts) => {
-              return queryClient.fetchQuery(
-                getArrayQueryKey(pathAndInput, 'query'),
-                () =>
+              return queryClient.fetchQuery({
+                ...opts,
+                queryKey: getArrayQueryKey(pathAndInput, 'query'),
+                queryFn: () =>
                   (client as any).query(...getClientArgs(pathAndInput, opts)),
-                opts,
-              );
+              });
             },
             [client, queryClient],
           ),
           fetchInfiniteQuery: useCallback(
             (pathAndInput, opts) => {
-              return queryClient.fetchInfiniteQuery(
-                getArrayQueryKey(pathAndInput, 'infinite'),
-                ({ pageParam }) => {
+              return queryClient.fetchInfiniteQuery({
+                ...opts,
+                queryKey: getArrayQueryKey(pathAndInput, 'infinite'),
+                queryFn: ({ pageParam }) => {
                   const [path, input] = pathAndInput;
-                  const actualInput = { ...(input as any), cursor: pageParam };
+                  const actualInput = { ...input, cursor: pageParam };
                   return (client as any).query(
                     ...getClientArgs([path, actualInput], opts),
                   );
                 },
-                opts,
-              );
+              });
             },
             [client, queryClient],
           ),
           prefetchQuery: useCallback(
             (pathAndInput, opts) => {
-              return queryClient.prefetchQuery(
-                getArrayQueryKey(pathAndInput, 'query'),
-                () =>
+              return queryClient.prefetchQuery({
+                ...opts,
+                queryKey: getArrayQueryKey(pathAndInput, 'query'),
+                queryFn: () =>
                   (client as any).query(...getClientArgs(pathAndInput, opts)),
-                opts,
-              );
+              });
             },
             [client, queryClient],
           ),
           prefetchInfiniteQuery: useCallback(
             (pathAndInput, opts) => {
-              return queryClient.prefetchInfiniteQuery(
-                getArrayQueryKey(pathAndInput, 'infinite'),
-                ({ pageParam }) => {
+              return queryClient.prefetchInfiniteQuery({
+                ...opts,
+                queryKey: getArrayQueryKey(pathAndInput, 'infinite'),
+                queryFn: ({ pageParam }) => {
                   const [path, input] = pathAndInput;
-                  const actualInput = { ...(input as any), cursor: pageParam };
+                  const actualInput = { ...input, cursor: pageParam };
                   return (client as any).query(
                     ...getClientArgs([path, actualInput], opts),
                   );
                 },
-                opts,
-              );
+              });
+            },
+            [client, queryClient],
+          ),
+          ensureQueryData: useCallback(
+            (pathAndInput, opts) => {
+              return queryClient.ensureQueryData({
+                ...opts,
+                queryKey: getArrayQueryKey(pathAndInput, 'query'),
+                queryFn: () =>
+                  (client as any).query(...getClientArgs(pathAndInput, opts)),
+              });
             },
             [client, queryClient],
           ),
           invalidateQueries: useCallback(
-            (...args: any[]) => {
-              const [queryKey, ...rest] = args;
+            (queryKey, filters, options) => {
               return queryClient.invalidateQueries(
-                getArrayQueryKey(queryKey, 'any'),
-                ...rest,
+                {
+                  ...filters,
+                  queryKey: getArrayQueryKey(queryKey as any, 'any'),
+                },
+                options,
+              );
+            },
+            [queryClient],
+          ),
+          resetQueries: useCallback(
+            (...args: any[]) => {
+              const [queryKey, filters, options] = args;
+
+              return queryClient.resetQueries(
+                {
+                  ...filters,
+                  queryKey: getArrayQueryKey(queryKey, 'any'),
+                },
+                options,
               );
             },
             [queryClient],
           ),
           refetchQueries: useCallback(
             (...args: any[]) => {
-              const [queryKey, ...rest] = args;
+              const [queryKey, filters, options] = args;
 
               return queryClient.refetchQueries(
-                getArrayQueryKey(queryKey, 'any'),
-                ...rest,
+                {
+                  ...filters,
+                  queryKey: getArrayQueryKey(queryKey, 'any'),
+                },
+                options,
               );
             },
             [queryClient],
           ),
           cancelQuery: useCallback(
             (pathAndInput) => {
-              return queryClient.cancelQueries(
-                getArrayQueryKey(pathAndInput, 'any'),
-              );
+              return queryClient.cancelQueries({
+                queryKey: getArrayQueryKey(pathAndInput, 'any'),
+              });
             },
             [queryClient],
           ),
@@ -403,39 +271,45 @@ export function createHooksInternal<
       : opts;
   }
 
-  function useQuery<
-    TPath extends keyof TQueryValues & string,
-    TQueryFnData = TQueryValues[TPath]['output'],
-    TData = TQueryValues[TPath]['output'],
-  >(
-    pathAndInput: [path: TPath, ...args: inferHandlerInput<TQueries[TPath]>],
-    opts?: UseTRPCQueryOptions<
-      TPath,
-      TQueryValues[TPath]['input'],
-      TQueryFnData,
-      TData,
-      TError
-    >,
-  ): UseTRPCQueryResult<TData, TError> {
+  function useQuery(
+    // FIXME path should be a tuple in next major
+    pathAndInput: [path: string, ...args: unknown[]],
+    opts?: UseTRPCQueryOptions<unknown, unknown, unknown, unknown, TError>,
+  ): UseTRPCQueryResult<unknown, TError> {
+    const context = useContext();
+    if (!context) {
+      throw new Error(
+        'Unable to retrieve application context. Did you forget to wrap your App inside `withTRPC` HoC?',
+      );
+    }
     const { abortOnUnmount, client, ssrState, queryClient, prefetchQuery } =
-      useContext();
+      context;
+
+    const defaultOpts = queryClient.getQueryDefaults(
+      getArrayQueryKey(pathAndInput, 'query'),
+    );
 
     if (
       typeof window === 'undefined' &&
       ssrState === 'prepass' &&
       opts?.trpc?.ssr !== false &&
-      opts?.enabled !== false &&
+      (opts?.enabled ?? defaultOpts?.enabled) !== false &&
       !queryClient.getQueryCache().find(getArrayQueryKey(pathAndInput, 'query'))
     ) {
       void prefetchQuery(pathAndInput as any, opts as any);
     }
-    const ssrOpts = useSSRQueryOptionsIfNeeded(pathAndInput, 'query', opts);
-    // request option should take priority over global
-    const shouldAbortOnUnmount = opts?.trpc?.abortOnUnmount ?? abortOnUnmount;
+    const ssrOpts = useSSRQueryOptionsIfNeeded(pathAndInput, 'query', {
+      ...defaultOpts,
+      ...opts,
+    });
 
-    const hook = __useQuery(
-      getArrayQueryKey(pathAndInput, 'query') as any,
-      (queryFunctionContext) => {
+    const shouldAbortOnUnmount =
+      opts?.trpc?.abortOnUnmount ?? config?.abortOnUnmount ?? abortOnUnmount;
+
+    const hook = __useQuery({
+      ...ssrOpts,
+      queryKey: getArrayQueryKey(pathAndInput, 'query') as any,
+      queryFn: (queryFunctionContext) => {
         const actualOpts = {
           ...ssrOpts,
           trpc: {
@@ -450,8 +324,9 @@ export function createHooksInternal<
           ...getClientArgs(pathAndInput, actualOpts),
         );
       },
-      { context: ReactQueryContext, ...ssrOpts },
-    ) as UseTRPCQueryResult<TData, TError>;
+      context: ReactQueryContext,
+    }) as UseTRPCQueryResult<unknown, TError>;
+
     hook.trpc = useHookResult({
       path: pathAndInput[0],
     });
@@ -459,112 +334,91 @@ export function createHooksInternal<
     return hook;
   }
 
-  function useMutation<
-    TPath extends keyof TMutationValues & string,
-    TContext = unknown,
-  >(
-    path: TPath | [TPath],
-    opts?: UseTRPCMutationOptions<
-      TMutationValues[TPath]['input'],
-      TError,
-      TMutationValues[TPath]['output'],
-      TContext
-    >,
-  ): UseTRPCMutationResult<
-    TMutationValues[TPath]['output'],
-    TError,
-    TMutationValues[TPath]['input'],
-    TContext
-  > {
+  function useMutation(
+    // FIXME: this should only be a tuple path in next major
+    path: string | [string],
+    opts?: UseTRPCMutationOptions<unknown, TError, unknown, unknown>,
+  ): UseTRPCMutationResult<unknown, TError, unknown, unknown> {
     const { client } = useContext();
     const queryClient = useQueryClient({ context: ReactQueryContext });
+    const actualPath = Array.isArray(path) ? path[0] : path;
 
-    const hook = __useMutation(
-      (input) => {
-        const actualPath = Array.isArray(path) ? path[0] : path;
+    const defaultOpts = queryClient.getMutationDefaults([
+      actualPath.split('.'),
+    ]);
 
+    const hook = __useMutation({
+      ...opts,
+      mutationKey: [actualPath.split('.')],
+      mutationFn: (input) => {
         return (client.mutation as any)(
           ...getClientArgs([actualPath, input], opts),
         );
       },
-      {
-        context: ReactQueryContext,
-        ...opts,
-        onSuccess(...args) {
-          const originalFn = () => opts?.onSuccess?.(...args);
+      context: ReactQueryContext,
+      onSuccess(...args) {
+        const originalFn = () =>
+          opts?.onSuccess?.(...args) ?? defaultOpts?.onSuccess?.(...args);
 
-          return mutationSuccessOverride({
-            originalFn,
-            queryClient,
-            meta: opts?.meta ?? {},
-          });
-        },
+        return mutationSuccessOverride({
+          originalFn,
+          queryClient,
+          meta: opts?.meta ?? defaultOpts?.meta ?? {},
+        });
       },
-    ) as UseTRPCMutationResult<
-      TMutationValues[TPath]['output'],
-      TError,
-      TMutationValues[TPath]['input'],
-      TContext
-    >;
+    }) as UseTRPCMutationResult<unknown, TError, unknown, unknown>;
 
     hook.trpc = useHookResult({
-      path: Array.isArray(path) ? path[0] : path,
+      path: actualPath,
     });
 
     return hook;
   }
 
-  /* istanbul ignore next */
-  /**
-   * ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
-   *  **Experimental.** API might change without major version bump
-   * ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠
-   */
-  function useSubscription<
-    TPath extends keyof TSubscriptions & string,
-    TOutput extends inferSubscriptionOutput<TRouter, TPath>,
-  >(
+  /* istanbul ignore next -- @preserve */
+  function useSubscription(
     pathAndInput: [
-      path: TPath,
-      ...args: inferHandlerInput<TSubscriptions[TPath]>,
+      // FIXME: tuple me in next major
+      path: string,
+      ...args: unknown[],
     ],
-    opts: UseTRPCSubscriptionOptions<
-      inferObservableValue<inferProcedureOutput<TSubscriptions[TPath]>>,
-      inferProcedureClientError<TSubscriptions[TPath]>
-    >,
+    opts: UseTRPCSubscriptionOptions<Observable<unknown, unknown>, TError>,
   ) {
     const enabled = opts?.enabled ?? true;
     const queryKey = hashQueryKey(pathAndInput);
     const { client } = useContext();
 
-    return useEffect(() => {
+    const optsRef = useRef<typeof opts>(opts);
+    optsRef.current = opts;
+
+    useEffect(() => {
       if (!enabled) {
         return;
       }
       const [path, input] = pathAndInput;
       let isStopped = false;
-      const subscription = client.subscription<
-        TRouter['_def']['subscriptions'],
-        TPath,
-        TOutput,
-        inferProcedureInput<TRouter['_def']['subscriptions'][TPath]>
-      >(path, (input ?? undefined) as any, {
-        onStarted: () => {
-          if (!isStopped) {
-            opts.onStarted?.();
-          }
+      const subscription = client.subscription(
+        path,
+        (input ?? undefined) as any,
+        {
+          onStarted: () => {
+            if (!isStopped) {
+              optsRef.current.onStarted?.();
+            }
+          },
+          onData: (data) => {
+            if (!isStopped) {
+              // FIXME this shouldn't be needed as both should be `unknown` in next major
+              optsRef.current.onData(data as any);
+            }
+          },
+          onError: (err) => {
+            if (!isStopped) {
+              optsRef.current.onError?.(err);
+            }
+          },
         },
-        onData: (data) => {
-          if (!isStopped) {
-            opts.onData(data);
-          }
-        },
-        onError: (err) => {
-          if (!isStopped) {
-            opts.onError?.(err);
-          }
-        },
-      });
+      );
       return () => {
         isStopped = true;
         subscription.unsubscribe();
@@ -573,18 +427,14 @@ export function createHooksInternal<
     }, [queryKey, enabled]);
   }
 
-  function useInfiniteQuery<TPath extends TInfiniteQueryNames & string>(
+  function useInfiniteQuery(
     pathAndInput: [
-      path: TPath,
-      input: Omit<TQueryValues[TPath]['input'], 'cursor'>,
+      // FIXME tuple in next major
+      path: string,
+      input: Record<any, unknown>,
     ],
-    opts?: UseTRPCInfiniteQueryOptions<
-      TPath,
-      Omit<TQueryValues[TPath]['input'], 'cursor'>,
-      TQueryValues[TPath]['output'],
-      TError
-    >,
-  ): UseTRPCInfiniteQueryResult<TQueryValues[TPath]['output'], TError> {
+    opts?: UseTRPCInfiniteQueryOptions<unknown, unknown, unknown, TError>,
+  ): UseTRPCInfiniteQueryResult<unknown, TError> {
     const [path, input] = pathAndInput;
     const {
       client,
@@ -594,26 +444,37 @@ export function createHooksInternal<
       abortOnUnmount,
     } = useContext();
 
+    const defaultOpts = queryClient.getQueryDefaults(
+      getArrayQueryKey(pathAndInput, 'infinite'),
+    );
+
     if (
       typeof window === 'undefined' &&
       ssrState === 'prepass' &&
       opts?.trpc?.ssr !== false &&
-      opts?.enabled !== false &&
+      (opts?.enabled ?? defaultOpts?.enabled) !== false &&
       !queryClient
         .getQueryCache()
         .find(getArrayQueryKey(pathAndInput, 'infinite'))
     ) {
-      void prefetchInfiniteQuery(pathAndInput as any, opts as any);
+      void prefetchInfiniteQuery(
+        pathAndInput as any,
+        { ...defaultOpts, ...opts } as any,
+      );
     }
 
-    const ssrOpts = useSSRQueryOptionsIfNeeded(pathAndInput, 'infinite', opts);
+    const ssrOpts = useSSRQueryOptionsIfNeeded(pathAndInput, 'infinite', {
+      ...defaultOpts,
+      ...opts,
+    });
 
     // request option should take priority over global
     const shouldAbortOnUnmount = opts?.trpc?.abortOnUnmount ?? abortOnUnmount;
 
-    const hook = __useInfiniteQuery(
-      getArrayQueryKey(pathAndInput, 'infinite') as any,
-      (queryFunctionContext) => {
+    const hook = __useInfiniteQuery({
+      ...ssrOpts,
+      queryKey: getArrayQueryKey(pathAndInput, 'infinite') as any,
+      queryFn: (queryFunctionContext) => {
         const actualOpts = {
           ...ssrOpts,
           trpc: {
@@ -626,21 +487,53 @@ export function createHooksInternal<
 
         const actualInput = {
           ...((input as any) ?? {}),
-          cursor: queryFunctionContext.pageParam,
+          cursor: queryFunctionContext.pageParam ?? opts?.initialCursor,
         };
 
+        // FIXME as any shouldn't be needed as client should be untyped too
         return (client as any).query(
           ...getClientArgs([path, actualInput], actualOpts),
         );
       },
-      { context: ReactQueryContext, ...ssrOpts },
-    ) as UseTRPCInfiniteQueryResult<TQueryValues[TPath]['output'], TError>;
+      context: ReactQueryContext,
+    }) as UseTRPCInfiniteQueryResult<unknown, TError>;
 
     hook.trpc = useHookResult({
       path,
     });
     return hook;
   }
+
+  const useQueries: TRPCUseQueries<TRouter> = (queriesCallback, context) => {
+    const { ssrState, queryClient, prefetchQuery, client } = useContext();
+
+    const proxy = createUseQueriesProxy(client);
+
+    const queries = queriesCallback(proxy);
+
+    if (typeof window === 'undefined' && ssrState === 'prepass') {
+      for (const query of queries) {
+        const queryOption = query as TRPCQueryOptions<any, any, any, any>;
+        if (
+          queryOption.trpc?.ssr !== false &&
+          !queryClient
+            .getQueryCache()
+            .find(getArrayQueryKey(queryOption.queryKey!, 'query'))
+        ) {
+          void prefetchQuery(queryOption.queryKey as any, queryOption as any);
+        }
+      }
+    }
+
+    return __useQueries({
+      queries: queries.map((query) => ({
+        ...query,
+        queryKey: getArrayQueryKey(query.queryKey, 'query'),
+      })),
+      context,
+    }) as any;
+  };
+
   const useDehydratedState: UseDehydratedState<TRouter> = (
     client,
     trpcState,
@@ -659,39 +552,12 @@ export function createHooksInternal<
     Provider: TRPCProvider,
     createClient,
     useContext,
+    useUtils: useContext,
     useQuery,
+    useQueries,
     useMutation,
     useSubscription,
     useDehydratedState,
     useInfiniteQuery,
   };
 }
-
-/**
- * Hack to infer the type of `createReactQueryHooks`
- * @link https://stackoverflow.com/a/59072991
- */
-class GnClass<TRouter extends AnyRouter, TSSRContext = unknown> {
-  fn() {
-    return createHooksInternal<TRouter, TSSRContext>();
-  }
-}
-
-type returnTypeInferer<TType> = TType extends (
-  a: Record<string, string>,
-) => infer U
-  ? U
-  : never;
-type fooType<TRouter extends AnyRouter, TSSRContext = unknown> = GnClass<
-  TRouter,
-  TSSRContext
->['fn'];
-
-/**
- * Infer the type of a `createReactQueryHooks` function
- * @internal
- */
-export type CreateReactQueryHooks<
-  TRouter extends AnyRouter,
-  TSSRContext = unknown,
-> = returnTypeInferer<fooType<TRouter, TSSRContext>>;

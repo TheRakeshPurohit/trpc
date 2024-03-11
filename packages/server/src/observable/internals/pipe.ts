@@ -1,9 +1,9 @@
-import { UnaryFunction } from '../types';
+import type { UnaryFunction } from '../types';
 import { identity } from './identity';
 
 /** @internal */
 export function pipeFromArray<TSource, TReturn>(
-  fns: Array<UnaryFunction<TSource, TReturn>>,
+  fns: UnaryFunction<TSource, TReturn>[],
 ): UnaryFunction<TSource, TReturn> {
   if (fns.length === 0) {
     return identity as UnaryFunction<any, any>;

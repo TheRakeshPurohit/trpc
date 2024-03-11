@@ -1,17 +1,16 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
 import { observable } from '@trpc/server/observable';
+import type { OperationLink, TRPCLink } from '../';
 import { splitLink } from '../';
-import { OperationLink, TRPCLink } from '../';
-import { AnyRouter } from '../../../server/src';
+import type { AnyRouter } from '../../../server/src';
 import { createChain } from '../links/internals/createChain';
 
 test('splitLink', () => {
-  const wsLinkSpy = jest.fn();
+  const wsLinkSpy = vi.fn();
   const wsLink: TRPCLink<any> = () => () =>
     observable(() => {
       wsLinkSpy();
     });
-  const httpLinkSpy = jest.fn();
+  const httpLinkSpy = vi.fn();
   const httpLink: TRPCLink<any> = () => () =>
     observable(() => {
       httpLinkSpy();
@@ -39,7 +38,7 @@ test('splitLink', () => {
   }).subscribe({});
   expect(httpLinkSpy).toHaveBeenCalledTimes(1);
   expect(wsLinkSpy).toHaveBeenCalledTimes(0);
-  jest.resetAllMocks();
+  vi.resetAllMocks();
 
   createChain({
     links,

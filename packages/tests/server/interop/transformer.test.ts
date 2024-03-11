@@ -1,17 +1,16 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { routerToServerAndClientNew, waitError } from '../___testHelpers';
 import { legacyRouterToServerAndClient } from './__legacyRouterToServerAndClient';
 import {
-  TRPCClientError,
   createWSClient,
   httpBatchLink,
   httpLink,
+  TRPCClientError,
   wsLink,
 } from '@trpc/client/src';
 import * as trpc from '@trpc/server/src';
 import { TRPCError } from '@trpc/server/src/error/TRPCError';
 import { observable } from '@trpc/server/src/observable';
-import devalue from 'devalue';
+import { uneval } from 'devalue';
 import fetch from 'node-fetch';
 import superjson from 'superjson';
 import { z } from 'zod';
@@ -20,7 +19,7 @@ test('superjson up and down', async () => {
   const transformer = superjson;
 
   const date = new Date();
-  const fn = jest.fn();
+  const fn = vi.fn();
   const { client, close } = legacyRouterToServerAndClient(
     trpc
       .router()
@@ -45,7 +44,7 @@ test('superjson up and down', async () => {
   expect(res.getTime()).toBe(date.getTime());
   expect((fn.mock.calls[0]![0]! as Date).getTime()).toBe(date.getTime());
 
-  close();
+  await close();
 });
 
 test('empty superjson up and down', async () => {
@@ -80,7 +79,7 @@ test('empty superjson up and down', async () => {
   const res2 = await client.query('empty-down', '');
   expect(res2).toBe('hello world');
 
-  close();
+  await close();
 });
 
 test('wsLink: empty superjson up and down', async () => {
@@ -116,18 +115,18 @@ test('wsLink: empty superjson up and down', async () => {
   const res2 = await client.query('empty-down', '');
   expect(res2).toBe('hello world');
 
-  close();
+  await close();
   ws.close();
 });
 
 test('devalue up and down', async () => {
   const transformer: trpc.DataTransformer = {
-    serialize: (object) => devalue(object),
+    serialize: (object) => uneval(object),
     deserialize: (object) => eval(`(${object})`),
   };
 
   const date = new Date();
-  const fn = jest.fn();
+  const fn = vi.fn();
   const { client, close } = legacyRouterToServerAndClient(
     trpc
       .router()
@@ -152,20 +151,20 @@ test('devalue up and down', async () => {
   expect(res.getTime()).toBe(date.getTime());
   expect((fn.mock.calls[0]![0]! as Date).getTime()).toBe(date.getTime());
 
-  close();
+  await close();
 });
 
 test('not batching: superjson up and devalue down', async () => {
   const transformer: trpc.CombinedDataTransformer = {
     input: superjson,
     output: {
-      serialize: (object) => devalue(object),
+      serialize: (object) => uneval(object),
       deserialize: (object) => eval(`(${object})`),
     },
   };
 
   const date = new Date();
-  const fn = jest.fn();
+  const fn = vi.fn();
   const { client, close } = legacyRouterToServerAndClient(
     trpc
       .router()
@@ -190,20 +189,20 @@ test('not batching: superjson up and devalue down', async () => {
   expect(res.getTime()).toBe(date.getTime());
   expect((fn.mock.calls[0]![0]! as Date).getTime()).toBe(date.getTime());
 
-  close();
+  await close();
 });
 
-test('batching: superjson up and devalue down', async () => {
+test('batching: superjson up and uneval down', async () => {
   const transformer: trpc.CombinedDataTransformer = {
     input: superjson,
     output: {
-      serialize: (object) => devalue(object),
+      serialize: (object) => uneval(object),
       deserialize: (object) => eval(`(${object})`),
     },
   };
 
   const date = new Date();
-  const fn = jest.fn();
+  const fn = vi.fn();
   const { client, close } = legacyRouterToServerAndClient(
     trpc
       .router()
@@ -228,20 +227,20 @@ test('batching: superjson up and devalue down', async () => {
   expect(res.getTime()).toBe(date.getTime());
   expect((fn.mock.calls[0]![0]! as Date).getTime()).toBe(date.getTime());
 
-  close();
+  await close();
 });
 
 test('batching: superjson up and f down', async () => {
   const transformer: trpc.CombinedDataTransformer = {
     input: superjson,
     output: {
-      serialize: (object) => devalue(object),
+      serialize: (object) => uneval(object),
       deserialize: (object) => eval(`(${object})`),
     },
   };
 
   const date = new Date();
-  const fn = jest.fn();
+  const fn = vi.fn();
   const { client, close } = legacyRouterToServerAndClient(
     trpc
       .router()
@@ -264,12 +263,12 @@ test('batching: superjson up and f down', async () => {
   expect(res.getTime()).toBe(date.getTime());
   expect((fn.mock.calls[0]![0]! as Date).getTime()).toBe(date.getTime());
 
-  close();
+  await close();
 });
 
 test('all transformers running in correct order', async () => {
   const world = 'foo';
-  const fn = jest.fn();
+  const fn = vi.fn();
 
   const transformer: trpc.CombinedDataTransformer = {
     input: {
@@ -319,10 +318,10 @@ test('all transformers running in correct order', async () => {
   expect(fn.mock.calls[0]![0]!).toBe('client:serialized');
   expect(fn.mock.calls[1]![0]!).toBe('server:deserialized');
   expect(fn.mock.calls[2]![0]!).toBe(world);
-  expect(fn.mock.calls[3][0]).toBe('server:serialized');
-  expect(fn.mock.calls[4][0]).toBe('client:deserialized');
+  expect(fn.mock.calls[3]![0]!).toBe('server:serialized');
+  expect(fn.mock.calls[4]![0]!).toBe('client:deserialized');
 
-  close();
+  await close();
 });
 
 describe('transformer on router', () => {
@@ -330,7 +329,7 @@ describe('transformer on router', () => {
     const transformer = superjson;
 
     const date = new Date();
-    const fn = jest.fn();
+    const fn = vi.fn();
     const { client, close } = legacyRouterToServerAndClient(
       trpc
         .router()
@@ -355,13 +354,13 @@ describe('transformer on router', () => {
     expect(res.getTime()).toBe(date.getTime());
     expect((fn.mock.calls[0]![0]! as Date).getTime()).toBe(date.getTime());
 
-    close();
+    await close();
   });
 
   test('ws', async () => {
     let wsClient: any;
     const date = new Date();
-    const fn = jest.fn();
+    const fn = vi.fn();
     const transformer = superjson;
     const { client, close } = legacyRouterToServerAndClient(
       trpc
@@ -392,13 +391,13 @@ describe('transformer on router', () => {
     expect((fn.mock.calls[0]![0]! as Date).getTime()).toBe(date.getTime());
 
     wsClient.close();
-    close();
+    await close();
   });
 
   test('subscription', async () => {
     let wsClient: any;
     const date = new Date();
-    const fn = jest.fn();
+    const fn = vi.fn();
     const transformer = superjson;
     const { client, close } = routerToServerAndClientNew(
       trpc
@@ -443,7 +442,7 @@ describe('transformer on router', () => {
     expect((fn.mock.calls[0]![0]! as Date).getTime()).toBe(date.getTime());
 
     wsClient.close();
-    close();
+    await close();
   });
 
   test('duplicate transformers', () => {
@@ -454,11 +453,11 @@ describe('transformer on router', () => {
     );
   });
 
-  test('superjson up and devalue down: transform errors correctly', async () => {
+  test('superjson up and uneval down: transform errors correctly', async () => {
     const transformer: trpc.CombinedDataTransformer = {
       input: superjson,
       output: {
-        serialize: (object) => devalue(object),
+        serialize: (object) => uneval(object),
         deserialize: (object) => eval(`(${object})`),
       },
     };
@@ -469,7 +468,7 @@ describe('transformer on router', () => {
         Object.setPrototypeOf(this, MyError.prototype);
       }
     }
-    const onError = jest.fn();
+    const onError = vi.fn();
     const { client, close } = legacyRouterToServerAndClient(
       trpc
         .router()
@@ -504,14 +503,14 @@ describe('transformer on router', () => {
     }
     expect(serverError.cause).toBeInstanceOf(MyError);
 
-    close();
+    await close();
   });
 });
 
 test('superjson - no input', async () => {
   const transformer = superjson;
 
-  const fn = jest.fn();
+  const fn = vi.fn();
   const { close, httpUrl } = legacyRouterToServerAndClient(
     trpc
       .router()
@@ -544,5 +543,5 @@ Object {
 }
 `);
 
-  close();
+  await close();
 });

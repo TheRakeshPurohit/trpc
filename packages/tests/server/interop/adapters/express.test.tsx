@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { Context, router } from './__router';
+import type http from 'http';
+import type { Context } from './__router';
+import { router } from './__router';
 import { createTRPCClient, httpBatchLink } from '@trpc/client/src';
-import * as trpc from '@trpc/server/src';
+import type * as trpc from '@trpc/server/src';
 import * as trpcExpress from '@trpc/server/src/adapters/express';
-import AbortController from 'abort-controller';
 import express from 'express';
-import http from 'http';
 import fetch from 'node-fetch';
 
 async function startServer() {
@@ -52,7 +51,7 @@ async function startServer() {
     links: [
       httpBatchLink({
         url: `http://localhost:${port}/trpc`,
-        AbortController: AbortController as any,
+        AbortController,
         fetch: fetch as any,
       }),
     ],

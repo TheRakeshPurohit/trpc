@@ -1,15 +1,12 @@
 import { routerToServerAndClientNew, waitError } from './___testHelpers';
-import { TRPCClientError, createTRPCProxyClient } from '@trpc/client';
-import {
-  inferProcedureInput,
-  inferProcedureParams,
-  initTRPC,
-} from '@trpc/server';
-import { expectTypeOf } from 'expect-type';
+import { createTRPCProxyClient, TRPCClientError } from '@trpc/client';
+import type { inferProcedureInput, inferProcedureParams } from '@trpc/server';
+import { initTRPC } from '@trpc/server';
+import type { UnsetMarker } from '@trpc/server/core/internals/utils';
 import { konn } from 'konn';
-import { ZodError, z } from 'zod';
+import { z, ZodError } from 'zod';
 
-const ignoreErrors = async (fn: () => Promise<unknown> | unknown) => {
+const ignoreErrors = async (fn: () => unknown) => {
   try {
     await fn();
   } catch {
@@ -151,6 +148,173 @@ test('only allow double input validator for object-like inputs', () => {
   } catch {
     // whatever
   }
+});
+
+describe('multiple input validators with optionals', () => {
+  const t = initTRPC.create();
+
+  const webhookProc = t.procedure.input(
+    z
+      .object({
+        id: z.string(),
+        eventTypeId: z.number().optional(),
+      })
+      .optional(),
+  );
+
+  test('2nd parser also optional => merged optional', async () => {
+    const webhookRouter = t.router({
+      byId: webhookProc
+        .input(
+          z
+            .object({
+              webhookId: z.string(),
+            })
+            .optional(),
+        )
+        .query(({ input }) => {
+          expectTypeOf(input).toEqualTypeOf<
+            | {
+                id: string;
+                eventTypeId?: number;
+                webhookId: string;
+              }
+            | undefined
+          >();
+          return input;
+        }),
+    });
+
+    const opts = routerToServerAndClientNew(webhookRouter);
+
+    await expect(opts.proxy.byId.query()).resolves.toBeUndefined();
+    await expect(opts.proxy.byId.query(undefined)).resolves.toBeUndefined();
+    await expect(
+      opts.proxy.byId.query({ id: '123', webhookId: '456' }),
+    ).resolves.toMatchObject({
+      id: '123',
+      webhookId: '456',
+    });
+
+    await opts.close();
+  });
+
+  test('2nd parser required => merged required', async () => {
+    const webhookRouter = t.router({
+      byId: webhookProc
+        .input(
+          z.object({
+            webhookId: z.string(),
+          }),
+        )
+        .query(({ input }) => {
+          expectTypeOf(input).toEqualTypeOf<{
+            id: string;
+            eventTypeId?: number;
+            webhookId: string;
+          }>();
+          return input;
+        }),
+    });
+
+    const opts = routerToServerAndClientNew(webhookRouter);
+
+    await expect(
+      opts.proxy.byId.query({ id: '123', webhookId: '456' }),
+    ).resolves.toMatchObject({
+      id: '123',
+      webhookId: '456',
+    });
+    // @ts-expect-error - missing id and webhookId
+    await expect(opts.proxy.byId.query()).rejects.toThrow();
+    // @ts-expect-error - missing id and webhookId
+    await expect(opts.proxy.byId.query(undefined)).rejects.toThrow();
+    await expect(
+      opts.proxy.byId.query({ id: '123', eventTypeId: 1, webhookId: '456' }),
+    ).resolves.toMatchObject({
+      id: '123',
+      eventTypeId: 1,
+      webhookId: '456',
+    });
+
+    await opts.close();
+  });
+
+  test('with optional keys', async () => {
+    const webhookRouter = t.router({
+      byId: webhookProc
+        .input(
+          z.object({
+            webhookId: z.string(),
+            foo: z.string().optional(),
+          }),
+        )
+        .query(({ input }) => {
+          expectTypeOf(input).toEqualTypeOf<{
+            id: string;
+            eventTypeId?: number;
+            webhookId: string;
+            foo?: string;
+          }>();
+          return input;
+        }),
+    });
+
+    const opts = routerToServerAndClientNew(webhookRouter);
+    await expect(
+      opts.proxy.byId.query({ id: '123', webhookId: '456' }),
+    ).resolves.toMatchObject({
+      id: '123',
+      webhookId: '456',
+    });
+    await expect(
+      opts.proxy.byId.query({ id: '123', webhookId: '456', foo: 'bar' }),
+    ).resolves.toMatchObject({
+      id: '123',
+      webhookId: '456',
+      foo: 'bar',
+    });
+
+    await opts.close();
+  });
+
+  test('cannot chain optional to required', async () => {
+    try {
+      t.procedure
+        .input(z.object({ foo: z.string() }))
+        // @ts-expect-error cannot chain optional to required
+        .input(z.object({ bar: z.number() }).optional());
+    } catch {
+      // whatever
+    }
+  });
+});
+
+test('no input', async () => {
+  const t = initTRPC.create();
+
+  const proc = t.procedure.query(({ input }) => {
+    expectTypeOf(input).toBeUndefined();
+    expect(input).toBeUndefined();
+    return input;
+  });
+
+  type ProcType = inferProcedureParams<typeof proc>;
+
+  expectTypeOf<ProcType['_input_in']>().toEqualTypeOf<UnsetMarker>();
+  expectTypeOf<ProcType['_input_out']>().toEqualTypeOf<UnsetMarker>();
+  expectTypeOf<ProcType['_output_in']>().toBeUndefined();
+  expectTypeOf<ProcType['_output_out']>().toBeUndefined();
+
+  const router = t.router({
+    proc,
+  });
+
+  const opts = routerToServerAndClientNew(router);
+
+  await expect(opts.proxy.proc.query()).resolves.toBeUndefined();
+
+  await opts.close();
 });
 
 test('zod default() string', async () => {
@@ -329,8 +493,12 @@ test('double validators with undefined', async () => {
       .mutation(({ input }) => {
         return input;
       });
-    type Input = inferProcedureInput<typeof proc>;
-    //    ^?
+
+    type Input = inferProcedureParams<typeof proc>['_input_in'];
+    expectTypeOf<Input>().toEqualTypeOf<{
+      roomId: string;
+      optionalKey?: string;
+    }>();
 
     const router = t.router({
       proc,
@@ -361,8 +529,12 @@ test('double validators with undefined', async () => {
       .mutation(({ input }) => {
         return input;
       });
-    type Input = inferProcedureInput<typeof proc>;
-    //    ^?
+
+    type Input = inferProcedureParams<typeof proc>['_input_in'];
+    expectTypeOf<Input>().toEqualTypeOf<{
+      roomId?: string;
+      key: string;
+    }>();
 
     const router = t.router({
       proc,
@@ -396,6 +568,10 @@ test('merges optional with required property', async () => {
       )
       .query(() => 'hi'),
   });
+
+  type Input = inferProcedureInput<(typeof router)['proc']>;
+  //    ^?
+  expectTypeOf<Input>().toEqualTypeOf<{ id: string }>();
 
   const client = createTRPCProxyClient<typeof router>({
     links: [],

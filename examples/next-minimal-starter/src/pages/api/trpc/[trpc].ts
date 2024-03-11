@@ -3,8 +3,8 @@
  * On a bigger app, you will probably want to split this file up into multiple files.
  */
 import * as trpcNext from '@trpc/server/adapters/next';
-import { z } from 'zod';
 import { publicProcedure, router } from '~/server/trpc';
+import { z } from 'zod';
 
 const appRouter = router({
   greeting: publicProcedure
@@ -23,7 +23,7 @@ const appRouter = router({
       };
     }),
   // 💡 Tip: Try adding a new procedure here and see if you can use it in the client!
-  // getUser: t.procedure.query(() => {
+  // getUser: publicProcedure.query(() => {
   //   return { id: '1', name: 'bob' };
   // }),
 });

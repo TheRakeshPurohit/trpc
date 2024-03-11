@@ -1,17 +1,16 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
 import { createQueryClient } from '../../__queryClient';
 import { createLegacyAppRouter } from './__testHelpers';
 import { QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import '@testing-library/jest-dom';
 import { render, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import React, { useState } from 'react';
 
 let factory: ReturnType<typeof createLegacyAppRouter>;
 beforeEach(() => {
   factory = createLegacyAppRouter();
 });
-afterEach(() => {
-  factory.close();
+afterEach(async () => {
+  await factory.close();
 });
 
 describe('invalidateQueries()', () => {
@@ -70,7 +69,7 @@ describe('invalidateQueries()', () => {
     expect(resolvers.allPosts).toHaveBeenCalledTimes(1);
     expect(resolvers.postById).toHaveBeenCalledTimes(1);
 
-    utils.getByTestId('refetch').click();
+    await userEvent.click(utils.getByTestId('refetch'));
 
     await waitFor(() => {
       expect(utils.container).toHaveTextContent('postByIdQuery:stale');
@@ -139,7 +138,7 @@ describe('invalidateQueries()', () => {
     expect(resolvers.allPosts).toHaveBeenCalledTimes(1);
     expect(resolvers.postById).toHaveBeenCalledTimes(1);
 
-    utils.getByTestId('refetch').click();
+    await userEvent.click(utils.getByTestId('refetch'));
 
     await waitFor(() => {
       expect(utils.container).toHaveTextContent('postByIdQuery:stale');
@@ -192,12 +191,15 @@ describe('invalidateQueries()', () => {
           <button
             data-testid="invalidate-5-predicate"
             onClick={() => {
-              utils.invalidateQueries({
+              utils.invalidateQueries(undefined, {
                 predicate(opts) {
                   const { queryKey } = opts;
-                  const [path, input] = queryKey;
+                  const [path, rest] = queryKey;
 
-                  return path === 'count' && input === 'test';
+                  return (
+                    JSON.stringify(path) === JSON.stringify(['count']) &&
+                    (rest as any)?.input === 'test'
+                  );
                 },
               });
             }}
@@ -231,7 +233,7 @@ describe('invalidateQueries()', () => {
     ]) {
       count++;
       // click button to invalidate
-      utils.getByTestId(testId).click();
+      await userEvent.click(utils.getByTestId(testId));
 
       // should become stale straight after the click
       await waitFor(() => {

@@ -1,11 +1,32 @@
-import {
-  getErrorFromUnknown,
-  getMessageFromUnknownError,
-} from '../error/utils';
-import { TRPC_ERROR_CODE_KEY } from '../rpc/codes';
+import type { TRPC_ERROR_CODE_KEY } from '../rpc/codes';
+import { getCauseFromUnknown } from '../shared/getCauseFromUnknown';
+
+export function getTRPCErrorFromUnknown(cause: unknown): TRPCError {
+  if (cause instanceof TRPCError) {
+    return cause;
+  }
+  if (cause instanceof Error && cause.name === 'TRPCError') {
+    // https://github.com/trpc/trpc/pull/4848
+    return cause as TRPCError;
+  }
+
+  const trpcError = new TRPCError({
+    code: 'INTERNAL_SERVER_ERROR',
+    cause,
+  });
+
+  // Inherit stack from error
+  if (cause instanceof Error && cause.stack) {
+    trpcError.stack = cause.stack;
+  }
+
+  return trpcError;
+}
 
 export class TRPCError extends Error {
-  public readonly cause?;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore override doesn't work in all environments due to "This member cannot have an 'override' modifier because it is not declared in the base class 'Error'"
+  public override readonly cause?: Error;
   public readonly code;
 
   constructor(opts: {
@@ -13,20 +34,19 @@ export class TRPCError extends Error {
     code: TRPC_ERROR_CODE_KEY;
     cause?: unknown;
   }) {
-    const code = opts.code;
-    const message =
-      opts.message ?? getMessageFromUnknownError(opts.cause, code);
-    const cause: Error | undefined =
-      opts !== undefined ? getErrorFromUnknown(opts.cause) : undefined;
+    const cause = getCauseFromUnknown(opts.cause);
+    const message = opts.message ?? cause?.message ?? opts.code;
 
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore https://github.com/tc39/proposal-error-cause
     super(message, { cause });
 
-    this.code = code;
-    this.cause = cause;
+    this.code = opts.code;
     this.name = 'TRPCError';
 
-    Object.setPrototypeOf(this, new.target.prototype);
+    if (!this.cause) {
+      // < ES2022 / < Node 16.9.0 compatability
+      this.cause = cause;
+    }
   }
 }
